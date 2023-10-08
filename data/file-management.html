@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dateimanager</title>
+    <!-- Integrierte Bootstrap CSS -->
+    <link rel="stylesheet" href="/bootstrap.min.css">
+    <!-- Externe Styles -->
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+<div class="container">
+    <h1 class="text-center">Dateimanager</h1>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            Dateien
+        </div>
+        <ul class="list-group list-group-flush" id="file-list"></ul>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            Datei hochladen
+        </div>
+        <div class="card-body">
+            <input type="file" id="upload-file" class="form-control mb-3">
+            <button onclick="uploadFile()">Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- Externe Scripts -->
+<script src="/js/scripts.js" defer></script>
+
+</body>
+</html>

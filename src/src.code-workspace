@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "../../Schreibtisch/src"
+		},
+		{
+			"name": "Schreibtisch",
+			"path": "../../Schreibtisch"
+		},
+		{
+			"name": "231003-222047-esp32s3camlcd",
+			"path": "../../231003-222047-esp32s3camlcd"
+		},
+		{
+			"name": "Modbusscanner",
+			"path": ".."
+		}
+	],
+	"settings": {
+		"easycode.openAI ApiKey": "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"
+	}
+}

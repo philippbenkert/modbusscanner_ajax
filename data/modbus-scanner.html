@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modbus Scanner</title>
+    <link rel="stylesheet" href="/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+    <h2>Manueller Scan</h2>
+    <label for="startregister">Startregister:</label>
+    <input type="number" id="startregister" name="startregister">
+    
+    <label for="length">Länge:</label>
+    <input type="number" id="length" name="length">
+
+    <label for="function">Funktion:</label>
+    <select id="function" name="function">
+        <option value="1">readCoils</option>
+        <option value="2">readDiscreteInputs</option>
+        <option value="3">readHoldingRegisters</option>
+        <option value="4">readInputRegisters</option>
+    </select>
+    
+    <button id="startManual">Start</button>
+    <button id="stopManual">Stop</button>
+
+    <div id="manualResults" style="margin-top:20px;">
+        <!-- Hier werden die Ergebnisse des manuellen Scans angezeigt -->
+    </div>
+
+    <hr>
+
+    <h2>Autoscan</h2>
+    <button id="startAuto">Start</button>
+    <button id="stopAuto">Stop</button>
+
+    <div id="autoResults" style="margin-top:20px;">
+        <!-- Hier werden die Ergebnisse des Autoscan angezeigt -->
+    </div>
+
+    <script src="/js/jquery-3.6.0.min.js"></script>
+    <script src="/js/scripts.js" defer></script>
+
+</body>
+
+</html>

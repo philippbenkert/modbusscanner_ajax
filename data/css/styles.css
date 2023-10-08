@@ -1,0 +1,90 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f9f9f9; /* Ein sehr heller Grauton für den Hintergrund */
+    color: #333;
+    /*background-image: url('/path-to-your-pattern.png'); /* Ein sanftes Hintergrundmuster (Sie müssen den Pfad entsprechend anpassen) */
+}
+
+h1, h2 {
+    background-color: #fff; /* Weiß */
+    padding: 10px 15px;
+    color: #FF4A4A; /* Ein sanfterer Rotton */
+    border-radius: 8px;
+    margin-top: 20px;
+    border: 1px solid #ECECEC; /* Ein sehr heller Grauton für den Rand */
+}
+
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    margin: 10px;
+    border: 1px solid #FF4A4A; /* Rote Umrandung */
+    background-color: #fff; /* Weiß */
+    color: #FF4A4A; /* Rot */
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.button:hover {
+    background-color: #FF4A4A; /* Rot */
+    color: #fff; /* Weiß */
+}
+
+.status, form {
+    background-color: #fff; /* Weiß */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.05); /* Ein sanfter Schatten */
+}
+
+label, input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    box-sizing: border-box;
+    border-radius: 4px;
+    border: 1px solid #ccc; 
+    font-size: 16px;
+}
+
+input[type="submit"] {
+    background-color: #fff; /* Weiß */
+    color: #FF4A4A; /* Rot */
+    cursor: pointer;
+    border: 1px solid #FF4A4A; /* Rote Umrandung */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+input[type="submit"]:hover {
+    background-color: #FF4A4A; /* Rot */
+    color: #fff; /* Weiß */
+}
+
+select, button {
+    padding: 10px;
+    margin: 5px 0;
+}
+
+.container {
+    max-width: 600px;
+    margin-top: 50px;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Ein sanfter Schatten */
+}
+
+.badge {
+    background-color: #FF4A4A; /* Rot */
+}
+
+.btn-success {
+    background-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #208738;
+}

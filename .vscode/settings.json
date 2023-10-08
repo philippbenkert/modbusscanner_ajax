@@ -1,0 +1,4 @@
+{
+    "C_Cpp.default.compilerPath": "C:/Users/Sorbino/.platformio/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-gcc.exe",
+    "cmake.sourceDirectory": "C:/Users/Sorbino/Documents/PlatformIO/Projects/Modbusscanner/.pio/libdeps/esp32s3box/AsyncTCP"
+}
