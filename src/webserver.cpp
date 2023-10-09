@@ -2,6 +2,10 @@
 #include <LittleFS.h>
 #include "ModbusScanner.h"
 
+constexpr char WLAN_CREDENTIALS_FILE[] = "/wlan-credentials.json";
+constexpr char MODBUS_CONFIG_FILE[] = "/modbus-config.json";
+constexpr size_t BUFFER_SIZE = 256;
+
 WebServer::WebServer() : server(80) {}
 
 bool WebServer::isConnectedToModbus() {
