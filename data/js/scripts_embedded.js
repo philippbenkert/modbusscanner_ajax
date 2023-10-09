@@ -26,8 +26,8 @@ function saveSettings(event) {
         .then(response => response.json())
         .then(data => {
             if(data) {
-                document.getElementById('deviceAddress').value = data.deviceAddress || '';
-                document.getElementById('baudrate').value = data.baudrate || '4800';
+                document.getElementById('deviceAddress').value = data.deviceAddress || '1';
+                document.getElementById('baudrate').value = data.baudrate || '19200';
                 document.getElementById('parity').value = data.parity || 'n';
                 document.getElementById('stopbits').value = data.stopbits || '1';
             }
@@ -52,16 +52,32 @@ function saveSettings(event) {
             console.error("Error fetching WLAN settings:", error);
         });
     }
-        
+    
+    var app = new Framework7({
+        root: '#app',
+        // ... andere Framework7-Einstellungen ...
+      });
+
     // Aufrufen der Funktionen loadModbusSettings und loadWLANSettings nach dem Laden der Seite
     window.onload = function() {
-        loadModbusSettings();
-        loadWLANSettings();
+        // URL des aktuellen Fensters abrufen
+        const currentURL = window.location.href;
+    
+        // Überprüfen Sie, ob die aktuelle URL 'modbus-settings.html' oder 'modbus-scanner.html' enthält
+        if (currentURL.indexOf('modbus-settings.html') !== -1 || currentURL.indexOf('modbus-scanner.html') !== -1) {
+            loadModbusSettings();
+        }
+    
+        // Überprüfen Sie, ob die aktuelle URL 'wlan-settings.html' enthält
+        if (currentURL.indexOf('wlan-settings.html') !== -1) {
+            loadWLANSettings();
+        }
     }
+    
 
     var isScanning = false; // Globale Variable, um zu überprüfen, ob ein Scanvorgang läuft
 
-$(document).ready(function() {
+    $(document).ready(function() {
     $('#startManual').click(function() {
         if(!isScanning) {
             isScanning = true;
@@ -109,6 +125,107 @@ function startAutoScan() {
     }
 }
 
+
+
+
+
+function httpRequest(url, method = 'GET', data = null) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.onload = function() {
+            if (this.status >= 200 && this.status < 300) {
+                resolve(JSON.parse(this.responseText));
+            } else {
+                reject(new Error(`Status: ${this.status}, Text: ${this.statusText}`));
+            }
+        };
+        xhr.onerror = function() {
+            reject(new Error('Netzwerkfehler'));
+        };
+        if (method === 'POST' && data) {
+            if (data instanceof FormData) {
+                xhr.send(data);
+            } else {
+                xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                xhr.send(JSON.stringify(data));
+            }
+        } else {
+            xhr.send();
+        }
+    });
+}
+
+let currentPath = '/'; // speichert den aktuellen Pfad
+
+async function fetchFiles(path = '/') {
+    console.log("fetchFiles() aufgerufen.");
+    currentPath = path; // Aktualisieren des aktuellen Pfads
+
+    try {
+        const files = await httpRequest(`/list-dir?path=${path}`);
+        console.log("Empfangene Dateien:", files);
+        
+        const fileList = document.getElementById('file-list');
+        fileList.innerHTML = '';
+        
+        if (path !== '/') {
+            // Hinzufügen einer Option zum Zurückgehen
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerHTML = `🔙 <a href="#" onclick="fetchFiles('/')">Zurück zum Hauptordner</a>`;
+            fileList.appendChild(li);
+        }
+        
+        // Sortieren: Erst Ordner, dann Dateien. Beide alphanumerisch.
+        const sortedFiles = files.sort((a, b) => {
+            if (a.type === 'directory' && b.type !== 'directory') return -1;
+            if (a.type !== 'directory' && b.type === 'directory') return 1;
+            return a.name.localeCompare(b.name); // Alphanumerische Sortierung
+        });
+
+        sortedFiles.forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            
+            if (file.type === 'directory') {
+                li.innerHTML = `<span>📁 <a href="#" onclick="fetchFiles('${path}${file.name}/')">${file.name}</a></span>`;
+            } else {
+                li.innerHTML = `📄 ${file.name} <span class="badge badge-primary badge-pill">${file.size} bytes</span> <a href="/download?path=${path}${file.name}" target="_blank" class="btn btn-sm btn-success">Download</a>`;
+            }
+            
+            fileList.appendChild(li);
+        });
+    } catch (error) {
+        console.error("Fehler beim Abrufen der Dateiliste:", error);
+    }
+}
+
+
+
+function uploadFile() {
+    console.log("uploadFile() aufgerufen.");
+    const fileInput = document.getElementById('upload-file');
+    const file = fileInput.files[0];
+    if (!file) {
+        console.warn("Keine Datei zum Hochladen ausgewählt.");
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    httpRequest('/upload', 'POST', formData)
+    .then(() => {
+        console.log("Datei erfolgreich hochgeladen.");
+        alert('Datei hochgeladen!');
+        fetchFiles();
+    })
+    .catch(error => {
+        console.error("Fehler beim Hochladen der Datei:", error);
+    });
+}
+
+fetchFiles();
+
 document.addEventListener('DOMContentLoaded', function() {
     // Abrufen des Status
     fetchStatus();
@@ -119,32 +236,3 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', saveSettings);
     }
 });
-
-async function fetchFiles() {
-    const response = await fetch('/list-dir');
-    const files = await response.json();
-    const fileList = document.getElementById('file-list');
-    fileList.innerHTML = '';
-    files.forEach(file => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex justify-content-between align-items-center';
-        li.innerHTML = `${file.name} <span class="badge badge-primary badge-pill">${file.size} bytes</span> <a href="/download?path=${file.name}" target="_blank" class="btn btn-sm btn-success">Download</a>`;
-        fileList.appendChild(li);
-    });
-}
-
-function uploadFile() {
-    const fileInput = document.getElementById('upload-file');
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
-    fetch('/upload', {
-        method: 'POST',
-        body: formData
-    }).then(() => {
-        alert('Datei hochgeladen!');
-        fetchFiles();
-    });
-}
-
-fetchFiles();

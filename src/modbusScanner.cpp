@@ -1,36 +1,40 @@
 #include "modbusScanner.h"
 #include "LittleFS.h"
+#include "ArduinoJson.h"  // Sie müssen die ArduinoJson-Bibliothek installieren.
 
 ModbusScanner modbusScanner;
 
-
 void saveModbusConfig(const char* key, const char* value) {
-    File file = LittleFS.open("/modbus-config.txt", "a");  // Öffnet die Datei im Anhängemodus
+    DynamicJsonDocument doc(256);
+    File file = LittleFS.open("/modbus-config.json", "r+");
     if (!file) {
         Serial.println("Failed to open file for writing");
         return;
     }
-    file.println(String(key) + "=" + String(value));
+
+    deserializeJson(doc, file);  // Lesen Sie das aktuelle JSON
+    doc[key] = value;  // Aktualisieren Sie den Wert
+    file.seek(0);
+    serializeJson(doc, file);
     file.close();
 }
 
 String getModbusConfig(const char* key) {
-    File file = LittleFS.open("/modbus-config.txt", "r");
+    DynamicJsonDocument doc(256);
+    File file = LittleFS.open("/modbus-config.json", "r");
     if (!file) {
         Serial.println("Failed to open file for reading");
         return String("");
     }
 
-    String line;
-    while (file.available()) {
-        line = file.readStringUntil('\n');
-        if (line.startsWith(key)) {
-            file.close();
-            return line.substring(String(key).length() + 1);
-        }
-    }
+    deserializeJson(doc, file);
     file.close();
-    return String("");
+    
+    if (doc.containsKey(key)) {
+        return doc[key].as<String>();
+    } else {
+        return String("");
+    }
 }
 
 ModbusScanner::ModbusScanner() : node() {
