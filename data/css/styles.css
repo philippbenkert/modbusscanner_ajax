@@ -6,6 +6,15 @@ body {
     /*background-image: url('/path-to-your-pattern.png'); /* Ein sanftes Hintergrundmuster (Sie müssen den Pfad entsprechend anpassen) */
 }
 
+.full-height {
+    height: 100vh; /* Setzt die Höhe auf 100% der Viewport-Höhe */
+}
+
+.no-border-label .col-form-label {
+    border: none;
+    box-shadow: none;
+}
+
 iframe {
     padding: 0;
     margin: 0;

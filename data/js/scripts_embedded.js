@@ -228,15 +228,22 @@ function uploadFile() {
     });
 }
 
-fetchFiles();
 
 document.addEventListener('DOMContentLoaded', function() {
     // Abrufen des Status
-    fetchStatus();
 
     // Event-Listener für das Formular hinzufügen
     let form = document.getElementById('modbus-settings-form');
     if (form) {
         form.addEventListener('submit', saveSettings);
     }
+
+    // Überprüfen Sie, ob die aktuelle URL 'file-management.html' enthält
+    const currentURL = window.location.href;
+    if (currentURL.indexOf('file-management.html') !== -1) {
+        fetchFiles();
+        //fetchStatus();
+
+    }
 });
+

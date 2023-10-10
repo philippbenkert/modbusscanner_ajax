@@ -37,10 +37,23 @@ function fetchStatusUsingXHR() {
 function adjustIframeHeight() {
     var iframe = document.getElementById("embeddedContent");
     if(iframe) {
-        iframe.style.height = (iframe.contentWindow.document.body.scrollHeight + 80) + 'px';
+        iframe.style.height = (iframe.contentWindow.document.body.scrollHeight + 100) + 'px';
     }
 }
 
+function updateFreeSpace() {
+    fetch('/get-free-space')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('freeSpace').textContent = data.freeSpace;
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateFreeSpace();
+});
+
+// Rufen Sie updateFreeSpace() auch auf, nachdem Sie Dateien hochgeladen, gelöscht oder andere Änderungen am LittleFS vorgenommen haben.
 
 function loadContent(url) {
     const iframe = document.getElementById("embeddedContent");

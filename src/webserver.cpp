@@ -78,6 +78,12 @@ void WebServer::begin() {
         }
     }
     request->send(200, "application/json", "[" + output + "]");
+    });
+
+    server.on("/get-free-space", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    size_t freeSpace = this->getFreeSpace();
+    String jsonResponse = "{\"freeSpace\":" + String(freeSpace) + "}";
+    request->send(200, "application/json", jsonResponse);
 });
 
 
