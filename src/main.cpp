@@ -3,6 +3,12 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
+#define BOARD_POWER_ON              4
+#define BOARD_485_TX                39
+#define BOARD_485_RX                38
+#define BOARD_485_EN                42
+#define GPIO_PUSE                   16
+
 std::string ssid;  // Ihr AP-Netzwerkname
 std::string password;  // Ihr AP-Netzwerkschlüssel
 
@@ -25,6 +31,19 @@ bool loadCredentials(String& savedSSID, String& savedPassword) {
 
 void setup() {
     // Serial-Kommunikation beginnen
+    pinMode(GPIO_PUSE, OUTPUT);
+    // ... (Ihr anderer Initialisierungscode, falls vorhanden)
+
+    // Peripheral power supply is enabled, the Pin must be set to HIGH to use PCIE, RS485
+    pinMode(BOARD_POWER_ON, OUTPUT);
+    digitalWrite(BOARD_POWER_ON, HIGH);
+
+    pinMode(BOARD_485_EN, OUTPUT);
+    digitalWrite(BOARD_485_EN, LOW);
+
+    // Konfigurieren Sie Serial2 mit den angegebenen Pins
+    Serial2.begin(19200, SERIAL_8N1, BOARD_485_RX, BOARD_485_TX);  // Baudrate, Format, RX-Pin, TX-Pin
+
     Serial.begin(115200);
 
     if (!LittleFS.begin(true)) {
