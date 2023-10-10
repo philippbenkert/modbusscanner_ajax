@@ -188,11 +188,18 @@ async function fetchFiles(path = '/') {
             if (file.type === 'directory') {
                 li.innerHTML = `<span>📁 <a href="#" onclick="fetchFiles('${path}${file.name}/')">${file.name}</a></span>`;
             } else {
-                li.innerHTML = `📄 ${file.name} <span class="badge badge-primary badge-pill">${file.size} bytes</span> <a href="/download?path=${path}${file.name}" target="_blank" class="btn btn-sm btn-success">Download</a>`;
+                li.innerHTML = `
+                    📄 ${file.name}
+                    <div class="d-flex align-items-center">
+                        <span class="badge badge-primary badge-pill">${file.size} bytes</span>
+                        <a href="/download?path=${path}${file.name}" target="_blank" class="btn btn-sm btn-success ml-3">Download</a>
+                    </div>
+                `;
             }
             
             fileList.appendChild(li);
         });
+        
     } catch (error) {
         console.error("Fehler beim Abrufen der Dateiliste:", error);
     }

@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ihr Seitentitel</title>
+    <title>Modbusscanner</title>
     <link rel="stylesheet" href="/bootstrap.min.css">
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 
 <body>
-    <header class="bg-light py-3">
-        <div class="container">
+    <header class="container-fluid mt-5">
+        <div class="container-fluid mt-5">
             <div class="row">
                 <div class="col-md-2"> <!-- Platz für das Logo -->
                     <img src="/logo.png" alt="Ihr Logo" class="img-fluid">
@@ -24,7 +24,7 @@
     </header>
 
 
-    <section class="container mt-5">
+    <section class="container-fluid mt-5">
         <div class="row">
             <div class="col-md-8 offset-md-2 text-center">
                 <button onclick="loadContent('/wlan-settings.html');" class="btn btn-primary mb-2">WLAN Einstellungen</button>
@@ -35,14 +35,14 @@
         </div>
     </section>
 
-    <section class="container mt-5">
-        <iframe id="embeddedContent" onload="adjustIframeHeight()" style="margin-top: 20px; width: 100%; border: none;"></iframe>
+    <section class="container-fluid mt-5">
+        <iframe id="embeddedContent" frameborder="0" onload="adjustIframeHeight()" style="width: 100%; height: 500px; border: none; display: block;"></iframe>
 
     </section>
 
-    <section class="container mt-5">
+    <section class="container-fluid mt-5 d-flex justify-content-center align-items-center flex-column" style="height: 100vh;">
         <h2>Status & Übersicht</h2>
-        <div class="status">
+        <div class="status text-center">
             <p>Aktuelle Zeit: <span id="currentTime">[Zeit hier]</span></p>
             <p>WLAN-Empfangsstärke: <span id="wifiStatus">[WLAN-Status hier]</span></p>
             <p>Modbus-Verbindungsstatus: <span id="modbusStatus">[Status hier]</span></p>

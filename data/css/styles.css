@@ -6,6 +6,11 @@ body {
     /*background-image: url('/path-to-your-pattern.png'); /* Ein sanftes Hintergrundmuster (Sie müssen den Pfad entsprechend anpassen) */
 }
 
+iframe {
+    padding: 0;
+    margin: 0;
+}
+
 h1, h2 {
     background-color: #fff; /* Weiß */
     padding: 10px 15px;

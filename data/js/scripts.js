@@ -37,9 +37,10 @@ function fetchStatusUsingXHR() {
 function adjustIframeHeight() {
     var iframe = document.getElementById("embeddedContent");
     if(iframe) {
-        iframe.style.height = iframe.contentWindow.document.body.scrollHeight + 'px';
+        iframe.style.height = (iframe.contentWindow.document.body.scrollHeight + 80) + 'px';
     }
 }
+
 
 function loadContent(url) {
     const iframe = document.getElementById("embeddedContent");
