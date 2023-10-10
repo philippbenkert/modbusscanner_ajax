@@ -2,6 +2,10 @@
 #include <LittleFS.h>
 #include "ModbusScanner.h"
 
+constexpr char WLAN_CREDENTIALS_FILE[] = "/wlan-credentials.json";
+constexpr char MODBUS_CONFIG_FILE[] = "/modbus-config.json";
+constexpr size_t BUFFER_SIZE = 256;
+
 WebServer::WebServer() : server(80) {}
 
 bool WebServer::isConnectedToModbus() {
@@ -46,15 +50,36 @@ void WebServer::begin() {
         }
     }
 
-    server.on("/list-dir", HTTP_GET, [](AsyncWebServerRequest *request) {
-        String output;
-        File root = LittleFS.open("/");
-        for (File file = root.openNextFile(); file; file = root.openNextFile()) {
-            if (output.length()) output += ',';
-            output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + "}";
-        }
-        request->send(200, "application/json", "[" + output + "]");
+    server.on("/get-status", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    int rssi = WiFi.RSSI(); // WLAN-Empfangsstärke
+    const char* modbusStatus = isConnectedToModbus() ? "Verbunden" : "Getrennt"; // Abhängig von Ihrer Implementierung
+    char jsonResponse[512]; // Größe je nach Bedarf anpassen
+    snprintf(jsonResponse, sizeof(jsonResponse), 
+        // ... (bereits vorhandene JSON-Struktur) ...
+        "\"rssi\":\"%d\","
+        "\"modbusStatus\":\"%s\",",
+        rssi, modbusStatus
+    );
+    request->send(200, "application/json", jsonResponse);
     });
+
+    server.on("/list-dir", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String path = request->hasArg("path") ? request->arg("path") : "/";
+    
+    String output;
+    File dir = LittleFS.open(path);
+    for (File file = dir.openNextFile(); file; file = dir.openNextFile()) {
+        if (output.length()) output += ',';
+        
+        if(file.isDirectory()){
+            output += "{\"name\":\"" + String(file.name()) + "\",\"type\":\"directory\"}";
+        } else {
+            output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + ",\"type\":\"file\"}";
+        }
+    }
+    request->send(200, "application/json", "[" + output + "]");
+});
+
 
     server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request) {
         if (!request->hasArg("path")) {
@@ -186,18 +211,7 @@ void WebServer::begin() {
         request->send(LittleFS, "/bootstrap.min.css", "text/css");
     });
 
-    server.on("/get-status", HTTP_GET, [this](AsyncWebServerRequest *request) {
-    int rssi = WiFi.RSSI(); // WLAN-Empfangsstärke
-    const char* modbusStatus = isConnectedToModbus() ? "Verbunden" : "Getrennt"; // Abhängig von Ihrer Implementierung
-    char jsonResponse[512]; // Größe je nach Bedarf anpassen
-    snprintf(jsonResponse, sizeof(jsonResponse), 
-        // ... (bereits vorhandene JSON-Struktur) ...
-        "\"rssi\":\"%d\","
-        "\"modbusStatus\":\"%s\",",
-        rssi, modbusStatus
-    );
-    request->send(200, "application/json", jsonResponse);
-    });
+    
 
 
     // Server starten

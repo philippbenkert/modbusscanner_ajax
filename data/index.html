@@ -36,7 +36,8 @@
     </section>
 
     <section class="container mt-5">
-        <iframe id="embeddedContent" style="margin-top: 20px; width: 100%; height: 500px; border: none;"></iframe>
+        <iframe id="embeddedContent" onload="adjustIframeHeight()" style="margin-top: 20px; width: 100%; border: none;"></iframe>
+
     </section>
 
     <section class="container mt-5">
@@ -44,11 +45,12 @@
         <div class="status">
             <p>Aktuelle Zeit: <span id="currentTime">[Zeit hier]</span></p>
             <p>WLAN-Empfangsstärke: <span id="wifiStatus">[WLAN-Status hier]</span></p>
-            <p>Modbus-Verbindungsstatus: <span id="modbusStatus"></span>[Status hier]</span></p>
+            <p>Modbus-Verbindungsstatus: <span id="modbusStatus">[Status hier]</span></p>
             <!-- ... Weitere Details ... -->
         </div>
     </section>
 
+    <script src="/js/jquery-3.6.0.min.js"></script>
     <script src="/js/scripts.js" defer></script>
 </body>
 
