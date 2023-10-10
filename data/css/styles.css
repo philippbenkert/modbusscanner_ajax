@@ -73,7 +73,7 @@ select, button {
 }
 
 .container {
-    max-width: 600px;
+    /*max-width: 600px;*/
     margin-top: 50px;
 }
 

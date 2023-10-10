@@ -6,6 +6,7 @@
 class WebServer {
     bool saveToFile(const char *path, const char *data);
     bool readFromFile(const char *path, char *data, size_t size);
+    
     bool isConnectedToModbus();
 
 

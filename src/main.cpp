@@ -3,8 +3,8 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
-const char* ssid;  // Ihr AP-Netzwerkname
-const char* password;  // Ihr AP-Netzwerkschlüssel
+std::string ssid;  // Ihr AP-Netzwerkname
+std::string password;  // Ihr AP-Netzwerkschlüssel
 
 WebServer webServer;
 

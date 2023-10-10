@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>Modbusscanner</title>
     <link rel="stylesheet" href="/bootstrap.min.css">
     <link rel="stylesheet" href="/css/styles.css">
@@ -18,11 +19,31 @@
                 </div>
                 <div class="col-md-10"> <!-- Platz für den Seitentitel -->
                     <h1 class="text-center">Modbus Scanner</h1>
+=======
+    <title>Ihr Seitentitel</title>
+
+    <!-- Framework7 styles -->
+    <link rel="stylesheet" href="/css/framework7.bundle.min.css">
+
+    <!-- Framework7 script -->
+    <script src="/js/framework7.bundle.min.js"></script>
+</head>
+
+<body>
+
+<div class="view view-main view-init">
+    <div class="page">
+        <div class="navbar">
+            <div class="navbar-inner">
+                <div class="left">
+                    <img src="/logo.png" alt="Ihr Logo" width="50">
+>>>>>>> d8f31dbf9a093f7ac6cbbd84991f758253ec10d6
                 </div>
+                <div class="title">Modbus Scanner</div>
             </div>
         </div>
-    </header>
 
+<<<<<<< HEAD
 
     <section class="container-fluid mt-5">
         <div class="row">
@@ -32,9 +53,16 @@
                 <button onclick="loadContent('/file-management.html');" class="btn btn-primary mb-2">Datei-Management</button>
                 <button onclick="loadContent('/modbus-scanner.html');" class="btn btn-primary mb-2">Scan-Funktionen</button>
             </div>
+=======
+        <div class="block text-align-center">
+            <button onclick="loadContent('/wlan-settings.html');" class="button button-fill button-primary">WLAN Einstellungen</button>
+            <button onclick="loadContent('/modbus-settings.html');" class="button button-fill button-primary">Modbus Einstellungen</button>
+            <button onclick="loadContent('/file-management.html');" class="button button-fill button-primary">Datei-Management</button>
+            <button onclick="loadContent('/modbus-scanner.html');" class="button button-fill button-primary">Scan-Funktionen</button>
+>>>>>>> d8f31dbf9a093f7ac6cbbd84991f758253ec10d6
         </div>
-    </section>
 
+<<<<<<< HEAD
     <section class="container-fluid mt-5">
         <iframe id="embeddedContent" frameborder="0" onload="adjustIframeHeight()" style="width: 100%; height: 500px; border: none; display: block;"></iframe>
 
@@ -47,11 +75,31 @@
             <p>WLAN-Empfangsstärke: <span id="wifiStatus">[WLAN-Status hier]</span></p>
             <p>Modbus-Verbindungsstatus: <span id="modbusStatus">[Status hier]</span></p>
             <!-- ... Weitere Details ... -->
+=======
+        <div class="block">
+            <iframe id="embeddedContent" onload="adjustIframeHeight()" style="margin-top: 20px; width: 100%; border: none;"></iframe>
         </div>
-    </section>
 
+        <div class="block-title">Status & Übersicht</div>
+        <div class="block">
+            <p>Aktuelle Zeit: <span id="currentTime">[Zeit hier]</span></p>
+            <p>WLAN-Empfangsstärke: <span id="wifiStatus">[WLAN-Status hier]</span></p>
+            <p>Modbus-Verbindungsstatus: <span id="modbusStatus">[Status hier]</span></p>
+>>>>>>> d8f31dbf9a093f7ac6cbbd84991f758253ec10d6
+        </div>
+    </div>
+</div>
+
+<script src="/js/jquery-3.6.0.min.js"></script>
+<script src="/js/scripts.js" defer></script>
+
+<<<<<<< HEAD
     <script src="/js/jquery-3.6.0.min.js"></script>
     <script src="/js/scripts.js" defer></script>
 </body>
 
 </html>
+=======
+</body>
+</html>
+>>>>>>> d8f31dbf9a093f7ac6cbbd84991f758253ec10d6
