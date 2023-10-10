@@ -61,7 +61,7 @@ function saveSettings(event) {
         const currentURL = window.location.href;
     
         // Überprüfen Sie, ob die aktuelle URL 'modbus-settings.html' oder 'modbus-scanner.html' enthält
-        if (currentURL.indexOf('modbus-settings.html') !== -1 || currentURL.indexOf('modbus-scanner.html') !== -1) {
+        if (currentURL.indexOf('modbus-settings.html') !== -1) {
             loadModbusSettings();
         }
     
