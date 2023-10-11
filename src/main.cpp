@@ -2,6 +2,7 @@
 #include "webserver.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include "ModbusScanner.h"
 
 #define BOARD_POWER_ON              4
 #define BOARD_485_TX                39
@@ -9,10 +10,11 @@
 #define BOARD_485_EN                42
 #define GPIO_PUSE                   16
 
-std::string ssid;  // Ihr AP-Netzwerkname
-std::string password;  // Ihr AP-Netzwerkschlüssel
+std::string ssid;
+std::string password;
 
 WebServer webServer;
+extern ModbusScanner modbusScanner;
 
 bool loadCredentials(String& savedSSID, String& savedPassword) {
     if (LittleFS.exists("/wlan-credentials.json")) {  // Ändern Sie den Dateinamen zu wlan-credentials.json
@@ -42,7 +44,8 @@ void setup() {
     digitalWrite(BOARD_485_EN, LOW);
 
     // Konfigurieren Sie Serial2 mit den angegebenen Pins
-    Serial2.begin(19200, SERIAL_8N1, BOARD_485_RX, BOARD_485_TX);  // Baudrate, Format, RX-Pin, TX-Pin
+    RTUutils::prepareHardwareSerial(Serial2);
+    Serial2.begin(19200, SERIAL_8N1, BOARD_485_RX, BOARD_485_TX);
 
     Serial.begin(115200);
 
@@ -70,6 +73,8 @@ void setup() {
 
     // Webserver starten
     webServer.begin();
+    modbusScanner.begin();
+
 }
 
 

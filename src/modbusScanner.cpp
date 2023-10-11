@@ -4,21 +4,14 @@
 #include <esp_exception.h>  // Sie benötigen diese Header-Datei
 
 
-const uint8_t BOARD_485_EN = 42;
 const size_t JSON_DOC_SIZE = 256;
 const char* CONFIG_FILE = "/modbus-config.json";
+const uint16_t MODBUS_MAX_BUFFER = 128;  // Hinzugefügt
+uint16_t responseBuffer[MODBUS_MAX_BUFFER];
 
-ModbusScanner modbusScanner;
 
-void sendModbusRequest() {
-    digitalWrite(BOARD_485_EN, HIGH);
-    delayMicroseconds(100);  // Verwenden von delayMicroseconds für kürzere Verzögerungen
-}
-
-void receiveModbusResponse() {
-    digitalWrite(BOARD_485_EN, LOW);
-    delayMicroseconds(100);
-}
+ModbusScanner modbusScanner(Serial2);
+HardwareSerial& mySerial2 = Serial2;
 
 bool saveModbusConfig(const char* key, const char* value) {
     DynamicJsonDocument doc(JSON_DOC_SIZE);
@@ -65,7 +58,7 @@ String getModbusConfig(const char* key) {
     }
 }
 
-ModbusScanner::ModbusScanner() : node() {
+ModbusScanner::ModbusScanner(HardwareSerial& serial, int8_t rtsPin) : node(rtsPin) {
     Serial.println("Initializing ModbusScanner...");
     deviceAddress = getModbusConfig("deviceAddress").toInt();
     if(deviceAddress == 0) deviceAddress = 1;
@@ -73,13 +66,17 @@ ModbusScanner::ModbusScanner() : node() {
 }
 
 
+
 bool ModbusScanner::isClientReachable() {
     Serial.println("Checking client reachability...");
-    sendModbusRequest();
-    uint8_t res = node.readInputRegisters(0, 1);
-    receiveModbusResponse();
-    Serial.println(res == node.ku8MBSuccess ? "Client is reachable." : "Client is not reachable.");
-    return (res == node.ku8MBSuccess);
+    Error res = node.addRequest(0, deviceAddress, READ_HOLD_REGISTER, 0, 1);
+    if (res == SUCCESS) {
+        return true;
+    } else {
+        ModbusError me(res);
+        Serial.printf("Error: %02X - %s\n", res, (const char *)me);
+        return false;
+    }
 }
 
 
@@ -97,21 +94,20 @@ void ModbusScanner::begin() {
 
     // Konfigurieren Sie Serial2 basierend auf den gespeicherten Einstellungen.
     if (parity == "n" && stopBits == 1) {
-        Serial2.begin(baudRate, SERIAL_8N1);
+        mySerial2.begin(baudRate, SERIAL_8N1);
     } else if (parity == "n" && stopBits == 2) {
-        Serial2.begin(baudRate, SERIAL_8N2);
+        mySerial2.begin(baudRate, SERIAL_8N2);
     } else if (parity == "e" && stopBits == 1) {
-        Serial2.begin(baudRate, SERIAL_8E1);
+        mySerial2.begin(baudRate, SERIAL_8E1);
     } else if (parity == "e" && stopBits == 2) {
-        Serial2.begin(baudRate, SERIAL_8E2);
+        mySerial2.begin(baudRate, SERIAL_8E2);
     } else {
         // Standardfall: Sie können zusätzliche Bedingungen hinzufügen, falls Sie andere Formate unterstützen möchten.
-        Serial2.begin(baudRate);
+        mySerial2.begin(baudRate);
     }
 
-    node.begin(deviceAddress, Serial2);
+    node.begin(mySerial2);
     Serial.println("Finished scanning registers.");
-
 }
 
 
@@ -119,27 +115,42 @@ String ModbusScanner::scanRegisters() {
     String result = "Function,Address,Value\n";
 
     if (modbusScanner.isClientReachable()) {
-    // Führen Sie Ihre Modbus-Operationen hier aus
+        // Führen Sie Ihre Modbus-Operationen hier aus
+        for (uint16_t i = 0; i <= 3000; i++) {
+            // readCoils
+            result += scanFunction(i, 1);
+            delay(50);  // Pause von 50ms
 
+            // readDiscreteInputs
+            result += scanFunction(i, 2);
+            delay(50);  // Pause von 50ms
 
-    for (uint16_t i = 0; i <= 3000; i++) {
-        // readCoils
-        result += scanFunction(i, 1);
-        // readDiscreteInputs
-        result += scanFunction(i, 2);
-        // readHoldingRegisters
-        result += scanFunction(i, 3);
-        // readInputRegisters
-        result += scanFunction(i, 4);
-    }
-    return result;
+            // readHoldingRegisters
+            result += scanFunction(i, 3);
+            delay(50);  // Pause von 50ms
+
+            // readInputRegisters
+            result += scanFunction(i, 4);
+            delay(50);  // Pause von 50ms
+        }
+        return result;
     } else {
-    Serial.println("Modbus client is not reachable!");
+        Serial.println("Modbus client is not reachable!");
     }
     return result;
-
 }
 
+
+void handleData(ModbusMessage msg, uint32_t token) 
+{
+    Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", msg.getServerID(), msg.getFunctionCode(), token, msg.size());
+    int i = 0;
+    for (auto& byte : msg) {
+        responseBuffer[i++] = byte;
+        Serial.printf("%02X ", byte);
+    }
+    Serial.println("");
+}
 
 
 String ModbusScanner::scanFunction(uint16_t address, uint8_t function) {
@@ -149,52 +160,44 @@ String ModbusScanner::scanFunction(uint16_t address, uint8_t function) {
     Serial.println(address);
     
     String result = "";
-    uint8_t res = 0;
+    uint8_t fc = 0;  // Funktion Code
 
-    try {
-        sendModbusRequest();  // Starten Sie den Sendemodus
+    switch (function) {
+        case 1:
+            fc = READ_COIL;
+            break;
+        case 2:
+            fc = READ_DISCR_INPUT;
+            break;
+        case 3:
+            fc = READ_HOLD_REGISTER;
+            break;
+        case 4:
+            fc = READ_INPUT_REGISTER;
+            break;
+    }
 
-        switch (function) {
-            case 1:
-                res = node.readCoils(address, 1);
-                break;
-            case 2:
-                res = node.readDiscreteInputs(address, 1);
-                break;
-            case 3:
-                res = node.readHoldingRegisters(address, 1);
-                break;
-            case 4:
-                res = node.readInputRegisters(address, 1);
-                break;
-        }
+    Error res = node.addRequest(0, deviceAddress, fc, address, 1);
 
-        receiveModbusResponse();  // Wechseln Sie in den Empfangsmodus
-
-        if (res == node.ku8MBSuccess) {
-            result = "Function " + String(function) + "," + String(address) + "," + String(node.getResponseBuffer(0)) + "\n";
-        } else {
-            result = "Function " + String(function) + "," + String(address) + ",No response\n";
-        }
-    } catch (const char* msg) {
-        Serial.print("Exception caught: ");
-        Serial.println(msg);
-        result = "Function " + String(function) + "," + String(address) + ",Exception caught\n";
+    if (res == SUCCESS) {
+    result = "Function " + String(function) + "," + String(address) + "," + String(responseBuffer[0]) + "\n";
+    } else {
+        ModbusError me(res);
+        result = "Function " + String(function) + "," + String(address) + ",Error: " + String((const char *)me) + "\n";
     }
 
     return result;
 }
 
-
 String ModbusScanner::scanSpecificRegister(uint16_t regAddress) {
-    // (Dieser Teil bleibt unverändert, da er nur für eine spezifische Adresse ist)
     String result = "";
-    uint8_t res = node.readInputRegisters(regAddress, 1);  // Ein Register lesen
+    Error res = node.addRequest(0, deviceAddress, READ_INPUT_REGISTER, regAddress, 1);
 
-    if (res == node.ku8MBSuccess) {
-        result = String(node.getResponseBuffer(0));
+    if (res == SUCCESS) {
+        result = String(responseBuffer[0]);  // Korrigiert
     } else {
-        result = "No response";
+        ModbusError me(res);
+        result = "Error: " + String((const char *)me);
     }
     return result;
 }
