@@ -1,15 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modbus Scanner</title>
-    <link rel="stylesheet" href="/bootstrap.min.css">
-    <link rel="stylesheet" href="/css/styles.css">
-</head>
-
-<body>
     <header class="container-fluid mt-5">
         <h1 class="text-center">Modbus Scanner</h1>
     </header>
@@ -71,10 +59,61 @@
             </div>
         </div>
     </section>
+    <script>
+        function startManualScan() {
+    
+    var isScanning = false;
+        
+    if(isScanning) {
+        const startregister = $('#startregister').val();
+        const length = $('#length').val();
+        const func = $('#function').val();
 
-    <script src="/js/jquery-3.6.0.min.js"></script>
-    <script src="/js/scripts_embedded.js" defer></script>
+        fetch("/manualscan", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ startregister, length, function: func })
+        })
+        .then(response => response.text())
+        .then(data => {
+            $('#manualResults').html(data);
+            setTimeout(startManualScan, 1000);
+        });
+    }
+}
 
-</body>
-
-</html>
+function startAutoScan() {
+    if(isScanning) {
+        fetch("/autoscan")
+        .then(response => response.text())
+        .then(data => {
+            $('#autoResults').html(data);
+            setTimeout(startAutoScan, 1000);
+        });
+    }
+}
+document.addEventListener('click', function(event) {
+    switch(event.target.id) {
+        case 'startManual':
+            if (!isScanning) {
+                isScanning = true;
+                startManualScan();
+            }
+            break;
+        case 'stopManual':
+            isScanning = false;
+            break;
+        case 'startAuto':
+            if (!isScanning) {
+                isScanning = true;
+                startAutoScan();
+            }
+            break;
+        case 'stopAuto':
+            isScanning = false;
+            break;
+    }
+});
+    </script>

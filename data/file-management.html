@@ -1,18 +1,3 @@
-<!DOCTYPE html>
-<html lang="de">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dateimanager</title>
-    <!-- Integrierte Bootstrap CSS -->
-    <link rel="stylesheet" href="/bootstrap.min.css">
-    <!-- Externe Styles -->
-    <link rel="stylesheet" href="/css/styles.css">
-</head>
-
-<body>
-
 <div class="container-fluid mt-5 full-height">
     <h1 class="text-center">Dateimanager</h1>
     
@@ -35,10 +20,90 @@
         </div>
     </div>
 </div>
+<script>
 
-<!-- Externe Scripts -->
-<script src="/js/jquery-3.6.0.min.js"></script>
-<script src="/js/scripts_embedded.js" defer></script>
+let currentPath = '/'; // speichert den aktuellen Pfad
 
-</body>
-</html>
+async function fetchFiles(path = '/') {
+    console.log("fetchFiles() aufgerufen.");
+    currentPath = path; // Aktualisieren des aktuellen Pfads
+
+    try {
+        const files = await httpRequest(`/list-dir?path=${path}`);
+        console.log("Empfangene Dateien:", files);
+        
+        const fileList = document.getElementById('file-list');
+        fileList.innerHTML = '';
+        
+        if (path !== '/') {
+            // Hinzufügen einer Option zum Zurückgehen
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerHTML = `🔙 <a href="#" onclick="fetchFiles('/')">Zurück zum Hauptordner</a>`;
+            fileList.appendChild(li);
+        }
+        
+        // Sortieren: Erst Ordner, dann Dateien. Beide alphanumerisch.
+        const sortedFiles = files.sort((a, b) => {
+            if (a.type === 'directory' && b.type !== 'directory') return -1;
+            if (a.type !== 'directory' && b.type === 'directory') return 1;
+            return a.name.localeCompare(b.name); // Alphanumerische Sortierung
+        });
+
+        sortedFiles.forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            
+            if (file.type === 'directory') {
+                li.innerHTML = `<span>📁 <a href="#" onclick="fetchFiles('${path}${file.name}/')">${file.name}</a></span>`;
+            } else {
+                li.innerHTML = `
+                    📄 ${file.name}
+                    <div class="d-flex align-items-center">
+                        <span class="badge badge-primary badge-pill">${file.size} bytes</span>
+                        <a href="/download?path=${path}${file.name}" target="_blank" class="btn btn-sm btn-success ml-3">Download</a>
+                    </div>
+                `;
+            }
+            
+            fileList.appendChild(li);
+        });
+        
+    } catch (error) {
+        console.error("Fehler beim Abrufen der Dateiliste:", error);
+    }
+}
+
+function uploadFile() {
+    console.log("uploadFile() aufgerufen.");
+    const fileInput = document.getElementById('upload-file');
+    const file = fileInput.files[0];
+    if (!file) {
+        console.warn("Keine Datei zum Hochladen ausgewählt.");
+        return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(() => {
+        console.log("Datei erfolgreich hochgeladen.");
+        alert('Datei hochgeladen!');
+        fetchFiles();
+    })
+    .catch(error => {
+        console.error("Fehler beim Hochladen der Datei:", error);
+    });
+}
+document.addEventListener('click', function(event) {
+    if (event.target.closest('a') && event.target.closest('li')) {
+        const path = event.target.getAttribute('data-path');
+        if (path) {
+            fetchFiles(path);
+            event.preventDefault();
+        }
+    }
+});
+</script>

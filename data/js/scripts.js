@@ -1,44 +1,17 @@
 document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
 
-function fetchStatusUsingXHR() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/get-status', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    
-    xhr.onload = function() {
-        if (xhr.status >= 200 && xhr.status < 400) {
-            try {
-                var correctedResponse = "{" + xhr.responseText.slice(0, -1) + "}";  // Removing the trailing comma and wrapping in curly braces
-                var data = JSON.parse(correctedResponse);
-                
-                console.log("JSON-Daten:", data);
-                document.getElementById('wifiStatus').textContent = "RSSI: " + data.rssi;
-                document.getElementById('modbusStatus').textContent = data.modbusStatus;
-                // ... für andere Datenpunkte, sobald Sie sie haben ...
-            } catch (e) {
-                console.error("Failed to parse JSON:", e, "Response:", xhr.responseText);
-            }
-        } else {
-            console.error('Server returned an error:', xhr.status);
-        }
-    };
-
-    xhr.onerror = function() {
-        console.error('Connection error');
-    };
-
-    xhr.send();
-}
-
-
-// Rufen Sie die Funktion wie gewohnt auf
-
-
-function adjustIframeHeight() {
-    var iframe = document.getElementById("embeddedContent");
-    if(iframe) {
-        iframe.style.height = (iframe.contentWindow.document.body.scrollHeight + 100) + 'px';
-    }
+function fetchStatus() {
+    fetch('/get-status')
+        .then(response => response.json())
+        .then(data => {
+            console.log("JSON-Daten:", data);
+            document.getElementById('wifiStatus').textContent = "RSSI: " + data.rssi;
+            document.getElementById('modbusStatus').textContent = data.modbusStatus;
+            // ... für andere Datenpunkte, sobald Sie sie haben ...
+        })
+        .catch(error => {
+            console.error("Failed to fetch or parse JSON:", error);
+        });
 }
 
 function updateFreeSpace() {
@@ -49,19 +22,48 @@ function updateFreeSpace() {
         });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    updateFreeSpace();
-});
-
-// Rufen Sie updateFreeSpace() auch auf, nachdem Sie Dateien hochgeladen, gelöscht oder andere Änderungen am LittleFS vorgenommen haben.
-
 function loadContent(url) {
-    const iframe = document.getElementById("embeddedContent");
-    iframe.src = url;
+    fetch(url)
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('contentContainer').innerHTML = data;
+            if (url.includes('modbus-settings.html')) {
+                loadModbusSettings();
+            } else if (url.includes('wlan-settings.html')) {
+                loadWLANSettings();
+            }
+        })
+        .catch(error => {
+            console.error("Fehler beim Laden des Inhalts:", error);
+        });
 }
 
-window.addEventListener('DOMContentLoaded', (event) => {
-    fetchStatusUsingXHR();
-             // Initialer Aufruf
-    setInterval(fetchStatusUsingXHR, 10000); // Regelmäßige Updates alle 10 Sekunden
+document.addEventListener('DOMContentLoaded', function() {
+    loadContent('/wlan-settings.html'); // oder jede andere Standardseite, die Sie anzeigen möchten
+    updateFreeSpace();
+    fetchStatus();
+    setInterval(fetchStatus, 10000); // Regelmäßige Updates alle 10 Sekunden
 });
+
+async function httpRequest(url, method = 'GET', data = null) {
+    const options = {
+        method: method,
+        headers: {}
+    };
+
+    if (method === 'POST' && data) {
+        if (data instanceof FormData) {
+            options.body = data;
+        } else {
+            options.headers['Content-Type'] = 'application/json;charset=UTF-8';
+            options.body = JSON.stringify(data);
+        }
+    }
+
+    const response = await fetch(url, options);
+    if (response.ok) {
+        return await response.json();
+    } else {
+        throw new Error(`Status: ${response.status}, Text: ${response.statusText}`);
+    }
+}
