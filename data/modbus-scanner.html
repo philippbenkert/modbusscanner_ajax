@@ -65,9 +65,9 @@
     var isScanning = false;
         
     if(isScanning) {
-        const startregister = $('#startregister').val();
-        const length = $('#length').val();
-        const func = $('#function').val();
+        const startregister = document.getElementById('startregister').value;
+        const length = document.getElementById('manualResults').innerHTML = data;
+        const func = document.getElementById('autoResults').innerHTML = data;
 
         fetch("/manualscan", {
             method: 'POST',
