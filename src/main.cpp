@@ -17,8 +17,8 @@ WebServer webServer;
 extern ModbusScanner modbusScanner;
 
 bool loadCredentials(String& savedSSID, String& savedPassword) {
-    if (LittleFS.exists("/wlan-credentials.json")) {  // Ändern Sie den Dateinamen zu wlan-credentials.json
-        File file = LittleFS.open("/wlan-credentials.json", "r");
+    if (LittleFS.exists("/config/wlan-credentials.json")) {  // Ändern Sie den Dateinamen zu wlan-credentials.json
+        File file = LittleFS.open("/config/wlan-credentials.json", "r");
         if (file) {
             DynamicJsonDocument doc(1024);
             deserializeJson(doc, file);

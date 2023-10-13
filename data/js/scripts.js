@@ -267,8 +267,6 @@ function saveSettings(event) {
             } else if (url.includes('file-management.html')) {
                 fetchFiles(path = '/logger/'); // Hier rufen Sie die fetchFiles Funktion auf
             } else if (url.includes('modbus-scanner.html')) {
-                // Überprüfen, ob ein bestimmtes Element aus modbus-scanner.html im DOM vorhanden ist
-                if (document.querySelector('.modbus-scanner-class')) { // Ersetzen Sie '.modbus-scanner-class' durch einen tatsächlichen Selektor von modbus-scanner.html
                     document.addEventListener('click', function(event) {
                         switch (event.target.id) {
                             case 'startManual':
@@ -287,7 +285,6 @@ function saveSettings(event) {
                                 break;
                         }
                     });
-                }
             }
             
         } catch (error) {

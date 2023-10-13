@@ -5,7 +5,7 @@
 
 
 const size_t JSON_DOC_SIZE = 256;
-const char* CONFIG_FILE = "/modbus-config.json";
+const char* CONFIG_FILE = "/config/modbus-config.json";
 const uint16_t MODBUS_MAX_BUFFER = 128;  // Hinzugefügt
 uint16_t responseBuffer[MODBUS_MAX_BUFFER];
 

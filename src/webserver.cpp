@@ -1,6 +1,8 @@
 #include "WebServer.h"
 #include <LittleFS.h>
 #include "ModbusScanner.h"
+#include <ArduinoJson.h>
+
 
 constexpr char WLAN_CREDENTIALS_FILE[] = "/config/wlan-credentials.json";
 constexpr char MODBUS_CONFIG_FILE[] = "/config/modbus-config.json";
@@ -93,7 +95,7 @@ void WebServer::begin() {
 
     server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request) {
         if (!request->hasArg("path")) {
-            request->send(400, "text/plain", "Bad Request");
+            request->send(400, "text/plain; charset=UTF-8", "Bad Request");
             return;
         }
         char path[256];
@@ -101,12 +103,12 @@ void WebServer::begin() {
         if (LittleFS.exists(path)) {
             request->send(LittleFS, path, String(), true);
         } else {
-            request->send(404, "text/plain", "File not found");
+            request->send(404, "text/plain; charset=UTF-8", "File not found");
         }
     });
 
     server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
-        request->send(200, "text/plain", "File uploaded");
+        request->send(200, "text/plain; charset=UTF-8", "File uploaded");
     }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
         static File file;
         if (!index) {
@@ -123,26 +125,49 @@ void WebServer::begin() {
         }
     });
 
-    server.on("/manualscan", HTTP_POST, [this](AsyncWebServerRequest *request) {
-        if (request->hasParam("startregister", true) && request->hasParam("length", true) && request->hasParam("function", true)) {
-            uint16_t startregister = request->getParam("startregister", true)->value().toInt();
-            uint8_t length = request->getParam("length", true)->value().toInt();
-            uint8_t func = request->getParam("function", true)->value().toInt();
-
-            // Scan durchführen
-            char result[256]; // Passen Sie die Größe entsprechend an
-            snprintf(result, sizeof(result), "%s", modbusScanner.scanFunction(startregister, func).c_str()); // Annahme: Die scanFunction-Methode gibt die gescannten Werte als String zurück
-            request->send(200, "text/plain", result);
+    server.on("/manualscan", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasHeader("Content-Type") && request->header("Content-Type").equalsIgnoreCase("application/json")) {
+        // Der Body enthält JSON-Daten
+        AsyncWebParameter* p = request->getParam(0, true, true); // POST data
+        if (p && p->value().length() > 0) {
+            DynamicJsonDocument doc(1024);
+            deserializeJson(doc, p->value());
+            
+            if (doc.containsKey("startregister") && doc.containsKey("length") && doc.containsKey("function")) {
+                uint16_t startregister = doc["startregister"];
+                uint8_t length = doc["length"];
+                uint8_t func = doc["function"];
+                
+                // Führen Sie hier Ihren Code aus, um den Scan durchzuführen...
+                
+            } else {
+                request->send(400, "text/plain", "Fehlende Parameter für den manuellen Scan");
+            }
         } else {
-            request->send(400, "text/plain", "Fehlende Parameter für den manuellen Scan");
+            request->send(400, "text/plain", "Leerer Body");
         }
-    });
+    } else {
+        request->send(400, "text/plain", "Ungültiger Content-Type");
+    }
+});
+
 
     server.on("/autoscan", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    try {
         char result[256]; // Passen Sie die Größe entsprechend an
         snprintf(result, sizeof(result), "%s", modbusScanner.scanRegisters().c_str()); // Annahme: Die scanRegisters-Methode gibt die gescannten Werte als String zurück
-        request->send(200, "text/plain", result);
-    });
+        request->send(200, "text/plain; charset=UTF-8", result);
+    } catch (const std::exception& e) {
+        // Ein spezifischer Fehler ist aufgetreten
+        Serial.println(e.what()); // Loggen Sie den Fehler für die Diagnose
+        request->send(500, "text/plain; charset=UTF-8", "Ein interner Serverfehler ist aufgetreten.");
+    } catch (...) {
+        // Ein allgemeiner Fehler ist aufgetreten
+        Serial.println("Ein unbekannter Fehler ist aufgetreten.");
+        request->send(500, "text/plain; charset=UTF-8", "Ein unbekannter Fehler ist aufgetreten.");
+    }
+});
+
 
     server.on("/save-modbus-settings", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if (request->hasParam("deviceAddress", true) && request->hasParam("baudrate", true) && request->hasParam("parity", true) && request->hasParam("stopbits", true)) {
@@ -163,7 +188,7 @@ void WebServer::begin() {
             if (saveToFile("/config/modbus-config.json", jsonResponse)) {
             request->send(200, "application/json", "{\"success\":true, \"message\":\"Einstellungen erfolgreich gespeichert.\"}");
         } else {
-            request->send(500, "text/plain", "Fehler beim Speichern der MODBUS-Einstellungen.");
+            request->send(500, "text/plain; charset=UTF-8", "Fehler beim Speichern der MODBUS-Einstellungen.");
         }
 }});
 
@@ -174,10 +199,10 @@ void WebServer::begin() {
             if (readFromFile(filename, jsonResponse, sizeof(jsonResponse))) {
                 request->send(200, "application/json", jsonResponse);
             } else {
-                request->send(500, "text/plain", "Fehler beim Abrufen der Modbus-Einstellungen.");
+                request->send(500, "text/plain; charset=UTF-8", "Fehler beim Abrufen der Modbus-Einstellungen.");
             }
         } else {
-            request->send(404, "text/plain", "Einstellungen nicht gefunden");
+            request->send(404, "text/plain; charset=UTF-8", "Einstellungen nicht gefunden");
         }
     });
 
@@ -196,7 +221,7 @@ void WebServer::begin() {
         if (saveToFile("/config/wlan-credentials.json", jsonConfig)) {
             request->send(200, "application/json", "{\"success\":true, \"message\":\"Einstellungen erfolgreich gespeichert.\"}");
         } else {
-            request->send(500, "text/plain", "Fehler beim Speichern der WLAN-Einstellungen.");
+            request->send(500, "text/plain; charset=UTF-8", "Fehler beim Speichern der WLAN-Einstellungen.");
         }
     }
 });
@@ -208,7 +233,7 @@ void WebServer::begin() {
         if (readFromFile(filename, jsonData, sizeof(jsonData))) {
             request->send(200, "application/json", jsonData);
         } else {
-            request->send(500, "text/plain", "Fehler beim Abrufen der WLAN-Einstellungen.");
+            request->send(500, "text/plain; charset=UTF-8", "Fehler beim Abrufen der WLAN-Einstellungen.");
         }
     });
 
@@ -231,12 +256,12 @@ void WebServer::begin() {
     String filePath = request->arg("path");
     if (LittleFS.exists(filePath.c_str())) {
         if (LittleFS.remove(filePath.c_str())) {
-            request->send(200, "text/plain", "File successfully deleted");
+            request->send(200, "text/plain; charset=UTF-8", "File successfully deleted");
         } else {
-            request->send(500, "text/plain", "Failed to delete file");
+            request->send(500, "text/plain; charset=UTF-8", "Failed to delete file");
         }
     } else {
-        request->send(404, "text/plain", "File not found");
+        request->send(404, "text/plain; charset=UTF-8", "File not found");
     }
     });
 
