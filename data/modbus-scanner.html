@@ -1,8 +1,9 @@
-    <header class="container-fluid mt-5">
-        <h1 class="text-center">Modbus Scanner</h1>
+<div class="container-fluid mt-5">
+    <header class="text-center">
+        <h1>Modbus Scanner</h1>
     </header>
 
-    <section class="container-fluid mt-5">
+    <section class="mt-5">
         <div class="row">
             <div class="col-md-12">
 
@@ -59,61 +60,65 @@
             </div>
         </div>
     </section>
-    <script>
-        function startManualScan() {
-    
-    var isScanning = false;
-        
-    if(isScanning) {
-        const startregister = document.getElementById('startregister').value;
-        const length = document.getElementById('manualResults').innerHTML = data;
-        const func = document.getElementById('autoResults').innerHTML = data;
+</div>
 
-        fetch("/manualscan", {
+    <script>
+
+    let isScanning = false;
+
+function startScan(type) {
+    if (!isScanning) return;
+
+    let url, resultElement;
+    if (type === "manual") {
+        url = "/manualscan";
+        resultElement = document.getElementById('manualResults');
+        const startregister = document.getElementById('startregister').value;
+        const length = document.getElementById('length').value;
+        const func = document.getElementById('function').value;
+
+        const data = { startregister, length, function: func };
+        fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ startregister, length, function: func })
+            body: JSON.stringify(data)
         })
         .then(response => response.text())
         .then(data => {
-            $('#manualResults').html(data);
-            setTimeout(startManualScan, 1000);
+            resultElement.innerHTML = data;
+            setTimeout(() => startScan(type), 1000);
+        });
+
+    } else if (type === "auto") {
+        url = "/autoscan";
+        resultElement = document.getElementById('autoResults');
+        fetch(url)
+        .then(response => response.text())
+        .then(data => {
+            resultElement.innerHTML = data;
+            setTimeout(() => startScan(type), 1000);
         });
     }
 }
 
-function startAutoScan() {
-    if(isScanning) {
-        fetch("/autoscan")
-        .then(response => response.text())
-        .then(data => {
-            $('#autoResults').html(data);
-            setTimeout(startAutoScan, 1000);
-        });
-    }
-}
 document.addEventListener('click', function(event) {
-    switch(event.target.id) {
+    switch (event.target.id) {
         case 'startManual':
-            if (!isScanning) {
-                isScanning = true;
-                startManualScan();
-            }
+            isScanning = true;
+            startScan("manual");
             break;
         case 'stopManual':
             isScanning = false;
             break;
         case 'startAuto':
-            if (!isScanning) {
-                isScanning = true;
-                startAutoScan();
-            }
+            isScanning = true;
+            startScan("auto");
             break;
         case 'stopAuto':
             isScanning = false;
             break;
     }
 });
-    </script>
+</script>

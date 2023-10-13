@@ -1,14 +1,14 @@
 <div class="container-fluid mt-5 full-height">
     <h1 class="text-center">Dateimanager</h1>
     
-    <div class="container-fluid mt-5">
+    <div class="mt-5">
         <div class="card-header bg-primary text-white">
             Dateien
         </div>
         <ul class="list-group list-group-flush" id="file-list"></ul>
     </div>
 
-    <div class="container-fluid mt-5">
+    <div class="mt-5">
         <div class="card-header bg-primary text-white">
             Datei hochladen
         </div>
@@ -20,13 +20,21 @@
         </div>
     </div>
 </div>
+
 <script>
 
 let currentPath = '/'; // speichert den aktuellen Pfad
 
+function createListItem(content, className = 'list-group-item d-flex justify-content-between align-items-center') {
+    const li = document.createElement('li');
+    li.className = className;
+    li.innerHTML = content;
+    return li;
+}
+
 async function fetchFiles(path = '/') {
     console.log("fetchFiles() aufgerufen.");
-    currentPath = path; // Aktualisieren des aktuellen Pfads
+    currentPath = path;
 
     try {
         const files = await httpRequest(`/list-dir?path=${path}`);
@@ -36,28 +44,22 @@ async function fetchFiles(path = '/') {
         fileList.innerHTML = '';
         
         if (path !== '/') {
-            // Hinzufügen einer Option zum Zurückgehen
-            const li = document.createElement('li');
-            li.className = 'list-group-item d-flex justify-content-between align-items-center';
-            li.innerHTML = `🔙 <a href="#" onclick="fetchFiles('/')">Zurück zum Hauptordner</a>`;
-            fileList.appendChild(li);
+            const backItem = createListItem(`🔙 <a href="#" onclick="fetchFiles('/')">Zurück zum Hauptordner</a>`);
+            fileList.appendChild(backItem);
         }
         
-        // Sortieren: Erst Ordner, dann Dateien. Beide alphanumerisch.
         const sortedFiles = files.sort((a, b) => {
             if (a.type === 'directory' && b.type !== 'directory') return -1;
             if (a.type !== 'directory' && b.type === 'directory') return 1;
-            return a.name.localeCompare(b.name); // Alphanumerische Sortierung
+            return a.name.localeCompare(b.name);
         });
 
         sortedFiles.forEach(file => {
-            const li = document.createElement('li');
-            li.className = 'list-group-item d-flex justify-content-between align-items-center';
-            
+            let content;
             if (file.type === 'directory') {
-                li.innerHTML = `<span>📁 <a href="#" onclick="fetchFiles('${path}${file.name}/')">${file.name}</a></span>`;
+                content = `<span>📁 <a href="#" onclick="fetchFiles('${path}${file.name}/')">${file.name}</a></span>`;
             } else {
-                li.innerHTML = `
+                content = `
                     📄 ${file.name}
                     <div class="d-flex align-items-center">
                         <span class="badge badge-primary badge-pill">${file.size} bytes</span>
@@ -65,8 +67,7 @@ async function fetchFiles(path = '/') {
                     </div>
                 `;
             }
-            
-            fileList.appendChild(li);
+            fileList.appendChild(createListItem(content));
         });
         
     } catch (error) {
@@ -88,7 +89,10 @@ function uploadFile() {
         method: 'POST',
         body: formData
     })
-    .then(() => {
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Status: ${response.status}, Text: ${response.statusText}`);
+        }
         console.log("Datei erfolgreich hochgeladen.");
         alert('Datei hochgeladen!');
         fetchFiles();
@@ -97,6 +101,7 @@ function uploadFile() {
         console.error("Fehler beim Hochladen der Datei:", error);
     });
 }
+
 document.addEventListener('click', function(event) {
     if (event.target.closest('a') && event.target.closest('li')) {
         const path = event.target.getAttribute('data-path');

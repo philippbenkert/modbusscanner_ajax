@@ -1,4 +1,5 @@
-    <section class="container-fluid mt-5">
+<div class="container-fluid mt-5">
+    <section>
         <div class="row">
             <div class="col-md-12"> <!-- zentriert das Formular auf größeren Bildschirmen -->
                 <form action="/set-wlan" method="post">
@@ -25,7 +26,11 @@
             </div>
         </div>
     </section>
+</div>
+
     <script>
+
+
 
 function loadWLANSettings() {
     fetch('/get-wlan-settings')
@@ -37,8 +42,11 @@ function loadWLANSettings() {
         }
     })
     .catch(error => {
-        console.error("Error fetching WLAN settings:", error);
+        handleError(error, "Error fetching WLAN settings:");
     });
 }
+
+loadWLANSettings();
+
 
     </script>

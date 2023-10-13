@@ -1,51 +1,46 @@
 document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
 
-function fetchStatus() {
-    fetch('/get-status')
-        .then(response => response.json())
-        .then(data => {
-            console.log("JSON-Daten:", data);
-            document.getElementById('wifiStatus').textContent = "RSSI: " + data.rssi;
-            document.getElementById('modbusStatus').textContent = data.modbusStatus;
-            // ... für andere Datenpunkte, sobald Sie sie haben ...
-        })
-        .catch(error => {
-            console.error("Failed to fetch or parse JSON:", error);
-        });
+function handleError(error, userMessage) {
+    console.error(userMessage, error);
+    alert(userMessage);
+
 }
 
-function updateFreeSpace() {
-    fetch('/get-free-space')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('freeSpace').textContent = data.freeSpace;
-        });
+async function fetchData(url, elementId, key) {
+    try {
+        const data = await httpRequest(url);
+        if (elementId && key) {
+            document.getElementById(elementId).textContent = key ? data[key] : data;
+        }
+        return data;
+    } catch (error) {
+        console.error(`Failed to fetch data from ${url}:`, error);
+    }
 }
 
-function loadContent(url) {
-    fetch(url)
-        .then(response => response.text())
-        .then(data => {
-            document.getElementById('contentContainer').innerHTML = data;
-            if (url.includes('modbus-settings.html')) {
-                loadModbusSettings();
-            } else if (url.includes('wlan-settings.html')) {
-                loadWLANSettings();
-            }
-        })
-        .catch(error => {
-            console.error("Fehler beim Laden des Inhalts:", error);
-        });
+async function loadContent(url) {
+    try {
+        const data = await httpRequest(url, 'GET', null, 'text');
+        document.getElementById('contentContainer').innerHTML = data;
+        if (url.includes('modbus-settings.html')) {
+            // loadModbusSettings(); // Wenn es eine solche Funktion gibt
+        } else if (url.includes('wlan-settings.html')) {
+            // loadWLANSettings(); // Wenn es eine solche Funktion gibt
+        }
+    } catch (error) {
+        console.error("Fehler beim Laden des Inhalts:", error);
+    }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    loadContent('/wlan-settings.html'); // oder jede andere Standardseite, die Sie anzeigen möchten
-    updateFreeSpace();
-    fetchStatus();
-    setInterval(fetchStatus, 10000); // Regelmäßige Updates alle 10 Sekunden
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadContent('/wlan-settings.html');
+    await fetchData('/get-free-space', 'freeSpace', 'freeSpace');
+    await fetchData('/get-status', 'wifiStatus', 'rssi');
+    await fetchData('/get-status', 'modbusStatus', 'modbusStatus');
+    setInterval(() => fetchData('/get-status', 'wifiStatus', 'rssi'), 10000);
 });
 
-async function httpRequest(url, method = 'GET', data = null) {
+async function httpRequest(url, method = 'GET', data = null, responseType = 'json') {
     const options = {
         method: method,
         headers: {}
@@ -62,7 +57,11 @@ async function httpRequest(url, method = 'GET', data = null) {
 
     const response = await fetch(url, options);
     if (response.ok) {
-        return await response.json();
+        if (responseType === 'json') {
+            return await response.json();
+        } else if (responseType === 'text') {
+            return await response.text();
+        }
     } else {
         throw new Error(`Status: ${response.status}, Text: ${response.statusText}`);
     }
