@@ -2,8 +2,8 @@
 #include <LittleFS.h>
 #include "ModbusScanner.h"
 
-constexpr char WLAN_CREDENTIALS_FILE[] = "/wlan-credentials.json";
-constexpr char MODBUS_CONFIG_FILE[] = "/modbus-config.json";
+constexpr char WLAN_CREDENTIALS_FILE[] = "/config/wlan-credentials.json";
+constexpr char MODBUS_CONFIG_FILE[] = "/config/modbus-config.json";
 constexpr size_t BUFFER_SIZE = 256;
 
 WebServer::WebServer() : server(80) {}
@@ -55,16 +55,19 @@ void WebServer::begin() {
     const char* modbusStatus = isConnectedToModbus() ? "Verbunden" : "Getrennt"; // Abhängig von Ihrer Implementierung
     char jsonResponse[512]; // Größe je nach Bedarf anpassen
     snprintf(jsonResponse, sizeof(jsonResponse), 
-        // ... (bereits vorhandene JSON-Struktur) ...
-        "\"rssi\":\"%d\","
-        "\"modbusStatus\":\"%s\",",
-        rssi, modbusStatus
+        "{"
+    "\"rssi\":\"%d\","
+    "\"modbusStatus\":\"%s\""
+    "}",
+    rssi, modbusStatus
     );
     request->send(200, "application/json", jsonResponse);
-    });
+}); // <- Dies ist die schließende Klammer für die Lambda-Funktion und die Methode server.on
+
+   
 
     server.on("/list-dir", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String path = request->hasArg("path") ? request->arg("path") : "/";
+    String path = request->hasArg("path") ? request->arg("path") : "/logger/";
     
     String output;
     File dir = LittleFS.open(path);
@@ -77,6 +80,7 @@ void WebServer::begin() {
             output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + ",\"type\":\"file\"}";
         }
     }
+     
     request->send(200, "application/json", "[" + output + "]");
     });
 
@@ -156,15 +160,15 @@ void WebServer::begin() {
             char jsonResponse[256]; // Passen Sie die Größe entsprechend an
             snprintf(jsonResponse, sizeof(jsonResponse), "{\"deviceAddress\":\"%s\",\"baudrate\":\"%s\",\"parity\":\"%s\",\"stopbits\":\"%s\"}", deviceAddress, baudrate, parity, stopbits);
 
-            if (saveToFile("/modbus-config.json", jsonResponse)) {
-            request->redirect("/modbus-settings.html");
-            } else {
-            request->send(500, "text/plain", "Fehlende Modbus-Einstellungen");
-            }
+            if (saveToFile("/config/modbus-config.json", jsonResponse)) {
+            request->send(200, "application/json", "{\"success\":true, \"message\":\"Einstellungen erfolgreich gespeichert.\"}");
+        } else {
+            request->send(500, "text/plain", "Fehler beim Speichern der MODBUS-Einstellungen.");
+        }
 }});
 
     server.on("/get-modbus-settings", HTTP_GET, [this](AsyncWebServerRequest *request){
-        const char* filename = "/modbus-config.json";
+        const char* filename = "/config/modbus-config.json";
         if (LittleFS.exists(filename)) {
             char jsonResponse[256]; // Passen Sie die Größe entsprechend an
             if (readFromFile(filename, jsonResponse, sizeof(jsonResponse))) {
@@ -178,26 +182,28 @@ void WebServer::begin() {
     });
 
     server.on("/set-wlan", HTTP_POST, [this](AsyncWebServerRequest *request) {
-        if (request->hasParam("ssid", true) && request->hasParam("password", true)) {
-            char newSSID[64]; // Passen Sie die Größe entsprechend an
-            char newPwd[64]; // Passen Sie die Größe entsprechend an
+    if (request->hasParam("ssid", true) && request->hasParam("password", true)) {
+        char newSSID[64]; // Passen Sie die Größe entsprechend an
+        char newPwd[64]; // Passen Sie die Größe entsprechend an
 
-            request->getParam("ssid", true)->value().toCharArray(newSSID, sizeof(newSSID));
-            request->getParam("password", true)->value().toCharArray(newPwd, sizeof(newPwd));
+        request->getParam("ssid", true)->value().toCharArray(newSSID, sizeof(newSSID));
+        request->getParam("password", true)->value().toCharArray(newPwd, sizeof(newPwd));
 
-            char jsonConfig[128]; // Passen Sie die Größe entsprechend an
-            snprintf(jsonConfig, sizeof(jsonConfig), "{\"ssid\":\"%s\",\"password\":\"%s\"}", newSSID, newPwd);
+        char jsonConfig[128]; // Passen Sie die Größe entsprechend an
+        snprintf(jsonConfig, sizeof(jsonConfig), "{\"ssid\":\"%s\",\"password\":\"%s\"}", newSSID, newPwd);
 
-            // Speichern Sie die Einstellungen in einer .json-Datei
-            if (saveToFile("//wlan-credentials.json", jsonConfig)) {
-            request->redirect("/wlan-settings.html");
-            } else {
+        // Speichern Sie die Einstellungen in einer .json-Datei
+        if (saveToFile("/config/wlan-credentials.json", jsonConfig)) {
+            request->send(200, "application/json", "{\"success\":true, \"message\":\"Einstellungen erfolgreich gespeichert.\"}");
+        } else {
             request->send(500, "text/plain", "Fehler beim Speichern der WLAN-Einstellungen.");
-            }
-}});
+        }
+    }
+});
+
 
     server.on("/get-wlan-settings", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        const char* filename = "/wlan-credentials.json";
+        const char* filename = "/config/wlan-credentials.json";
         char jsonData[128]; // Passen Sie die Größe entsprechend an
         if (readFromFile(filename, jsonData, sizeof(jsonData))) {
             request->send(200, "application/json", jsonData);
@@ -217,7 +223,23 @@ void WebServer::begin() {
         request->send(LittleFS, "/bootstrap.min.css", "text/css");
     });
 
-    
+    server.on("/delete", HTTP_DELETE, [this](AsyncWebServerRequest *request) {
+    if (!request->hasArg("path")) {
+        request->send(400, "text/plain", "Bad Request: Missing path argument");
+        return;
+    }
+    String filePath = request->arg("path");
+    if (LittleFS.exists(filePath.c_str())) {
+        if (LittleFS.remove(filePath.c_str())) {
+            request->send(200, "text/plain", "File successfully deleted");
+        } else {
+            request->send(500, "text/plain", "Failed to delete file");
+        }
+    } else {
+        request->send(404, "text/plain", "File not found");
+    }
+    });
+
 
 
     // Server starten
