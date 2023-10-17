@@ -5,8 +5,7 @@
 #include "ModbusScanner.h"
 
 #define BOARD_POWER_ON              4
-#define BOARD_485_TX                39
-#define BOARD_485_RX                38
+
 #define BOARD_485_EN                42
 #define GPIO_PUSE                   16
 
@@ -43,10 +42,6 @@ void setup() {
     pinMode(BOARD_485_EN, OUTPUT);
     digitalWrite(BOARD_485_EN, LOW);
 
-    // Konfigurieren Sie Serial2 mit den angegebenen Pins
-    RTUutils::prepareHardwareSerial(Serial2);
-    Serial2.begin(19200, SERIAL_8N1, BOARD_485_RX, BOARD_485_TX);
-
     Serial.begin(115200);
 
     if (!LittleFS.begin(true)) {
@@ -74,7 +69,6 @@ void setup() {
     // Webserver starten
     webServer.begin();
     modbusScanner.begin();
-
 }
 
 

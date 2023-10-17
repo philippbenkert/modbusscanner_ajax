@@ -9,6 +9,8 @@ constexpr char MODBUS_CONFIG_FILE[] = "/config/modbus-config.json";
 constexpr size_t BUFFER_SIZE = 256;
 
 WebServer::WebServer() : server(80) {}
+AsyncWebSocket ws("/ws"); // Erstellen Sie ein WebSocket-Objekt
+
 
 bool WebServer::isConnectedToModbus() {
     // Platzhalter Logik:
@@ -51,61 +53,11 @@ void WebServer::begin() {
             return;
         }
     }
-
-    server.on("/get-status", HTTP_GET, [this](AsyncWebServerRequest *request) {
-    int rssi = WiFi.RSSI(); // WLAN-Empfangsstärke
-    const char* modbusStatus = isConnectedToModbus() ? "Verbunden" : "Getrennt"; // Abhängig von Ihrer Implementierung
-    char jsonResponse[512]; // Größe je nach Bedarf anpassen
-    snprintf(jsonResponse, sizeof(jsonResponse), 
-        "{"
-    "\"rssi\":\"%d\","
-    "\"modbusStatus\":\"%s\""
-    "}",
-    rssi, modbusStatus
-    );
-    request->send(200, "application/json", jsonResponse);
-}); // <- Dies ist die schließende Klammer für die Lambda-Funktion und die Methode server.on
-
-   
-
-    server.on("/list-dir", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String path = request->hasArg("path") ? request->arg("path") : "/logger/";
+    // WebSocket-Handler hinzufügen
+    ws.onEvent(WebServer::onWebSocketEvent);
+    server.addHandler(&ws);
     
-    String output;
-    File dir = LittleFS.open(path);
-    for (File file = dir.openNextFile(); file; file = dir.openNextFile()) {
-        if (output.length()) output += ',';
-        
-        if(file.isDirectory()){
-            output += "{\"name\":\"" + String(file.name()) + "\",\"type\":\"directory\"}";
-        } else {
-            output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + ",\"type\":\"file\"}";
-        }
-    }
-     
-    request->send(200, "application/json", "[" + output + "]");
-    });
-
-    server.on("/get-free-space", HTTP_GET, [this](AsyncWebServerRequest *request) {
-    size_t freeSpace = this->getFreeSpace();
-    String jsonResponse = "{\"freeSpace\":" + String(freeSpace) + "}";
-    request->send(200, "application/json", jsonResponse);
-});
-
-
-    server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request) {
-        if (!request->hasArg("path")) {
-            request->send(400, "text/plain; charset=UTF-8", "Bad Request");
-            return;
-        }
-        char path[256];
-        request->arg("path").toCharArray(path, sizeof(path));
-        if (LittleFS.exists(path)) {
-            request->send(LittleFS, path, String(), true);
-        } else {
-            request->send(404, "text/plain; charset=UTF-8", "File not found");
-        }
-    });
+    
 
     server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
         request->send(200, "text/plain; charset=UTF-8", "File uploaded");
@@ -226,6 +178,7 @@ void WebServer::begin() {
     }
 });
 
+    
 
     server.on("/get-wlan-settings", HTTP_GET, [this](AsyncWebServerRequest *request) {
         const char* filename = "/config/wlan-credentials.json";
@@ -271,8 +224,113 @@ void WebServer::begin() {
     server.begin();
 }
 
+String WebServer::getFiles(const String& path) {
+    String output;
+    File dir = LittleFS.open(path.c_str());
+    for (File file = dir.openNextFile(); file; file = dir.openNextFile()) {
+        if (output.length()) output += ',';
+        
+        if(file.isDirectory()){
+            output += "{\"name\":\"" + String(file.name()) + "\",\"type\":\"directory\"}";
+        } else {
+            output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + ",\"type\":\"file\"}";
+        }
+    }
+    return "[" + output + "]";
+    }
+
 void WebServer::handleClient() {
-    // In dieser Implementierung ist nichts zu tun, da ESPAsyncWebServer asynchron ist
+    ws.cleanupClients(); // Bereinigen Sie nicht verbundene WebSocket-Clients
 }
 
+void WebServer::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    switch (type) {
+        case WS_EVT_CONNECT:
+            Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+            break;
+        case WS_EVT_DISCONNECT:
+            Serial.printf("WebSocket client #%u disconnected\n", client->id());
+            break;
+        case WS_EVT_DATA:
+            if (len) {
+                String msg = String((char*)data).substring(0, len);
+                Serial.printf("Received WebSocket message: %s\n", msg.c_str());
+
+                // GET_STATUS
+                if (msg == "GET_STATUS") {
+                    int rssi = WiFi.RSSI();
+                    const char* modbusStatus = WebServer::isConnectedToModbus() ? "Verbunden" : "Getrennt";
+                    char jsonResponse[512];
+                    snprintf(jsonResponse, sizeof(jsonResponse), 
+                        "{"
+                        "\"rssi\":\"%d\","
+                        "\"modbusStatus\":\"%s\""
+                        "}",
+                        rssi, modbusStatus
+                    );
+                    client->text(jsonResponse);
+                }
+
+                // LIST_DIR
+                else if (msg.startsWith("LIST_DIR")) {
+                    String path = msg.substring(8); // Annahme: Die Nachricht hat das Format "LIST_DIR/path/to/dir"
+                    if (path.length() == 0) path = "/logger/";
+
+                    String output;
+                    File dir = LittleFS.open(path);
+                    for (File file = dir.openNextFile(); file; file = dir.openNextFile()) {
+                        if (output.length()) output += ',';
+                        
+                        if(file.isDirectory()){
+                            output += "{\"name\":\"" + String(file.name()) + "\",\"type\":\"directory\"}";
+                        } else {
+                            output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + ",\"type\":\"file\"}";
+                        }
+                    }
+                    client->text("[" + output + "]");
+                }
+                
+                // DOWNLOAD
+                if (msg.startsWith("DOWNLOAD:")) {
+                    String path = msg.substring(9);
+                    if (LittleFS.exists(path.c_str())) {
+                        File file = LittleFS.open(path.c_str(), "r");
+                        String fileContent = file.readString();
+                        client->text("FILE_CONTENT:" + fileContent);
+                        file.close();
+                    } else {
+                        client->text("ERROR:File not found");
+                    }
+                }
+
+                // START_UPLOAD
+                else if (msg.startsWith("START_UPLOAD:")) {
+                    String filename = msg.substring(13);
+                    // ... (Logik zum Starten des Uploads)
+                    client->text("UPLOAD_STARTED");
+                }
+
+                // UPLOAD_CHUNK
+                else if (msg.startsWith("UPLOAD_CHUNK:")) {
+                    String chunkData = msg.substring(13);
+                    // ... (Logik zum Speichern des Chunks)
+                }
+
+                // END_UPLOAD
+                else if (msg == "END_UPLOAD") {
+                    // ... (Logik zum Abschließen des Uploads)
+                    client->text("UPLOAD_COMPLETED");
+                }
+
+                // GET_FREE_SPACE
+                else if (msg == "GET_FREE_SPACE") {
+                    size_t freeSpace = WebServer::getFreeSpace();
+                    String jsonResponse = "{\"freeSpace\":" + String(freeSpace) + "}";
+                    client->text(jsonResponse);
+                }
+            }
+            break;
+        // Sie können auch auf andere Ereignisse reagieren, z.B. WS_EVT_PONG
+    }
+}
 
