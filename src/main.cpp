@@ -3,11 +3,17 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "ModbusScanner.h"
+#include "WebSocketHandler.h"
+#include "TouchPanel.h"
+#include "SDCardHandler.h"
 
-#define BOARD_POWER_ON              4
+//#define BOARD_POWER_ON              4
 
-#define BOARD_485_EN                42
-#define GPIO_PUSE                   16
+#define BOARD_485_EN                2
+//#define GPIO_PUSE                   16
+
+LGFX display;
+SDCardHandler sdCard;
 
 std::string ssid;
 std::string password;
@@ -30,14 +36,27 @@ bool loadCredentials(String& savedSSID, String& savedPassword) {
     return false;
 }
 
+String getWlanSettingsAsJson() {
+    String savedSSID, savedPassword;
+    if(loadCredentials(savedSSID, savedPassword)) {
+        DynamicJsonDocument doc(1024);
+        doc["ssid"] = savedSSID;
+        doc["password"] = savedPassword;
+        String output;
+        serializeJson(doc, output);
+        return output;
+    }
+    return "{}"; // Leeres JSON, wenn keine Einstellungen gefunden wurden
+}
+
 void setup() {
     // Serial-Kommunikation beginnen
-    pinMode(GPIO_PUSE, OUTPUT);
+    //pinMode(GPIO_PUSE, OUTPUT);
     // ... (Ihr anderer Initialisierungscode, falls vorhanden)
 
     // Peripheral power supply is enabled, the Pin must be set to HIGH to use PCIE, RS485
-    pinMode(BOARD_POWER_ON, OUTPUT);
-    digitalWrite(BOARD_POWER_ON, HIGH);
+    //pinMode(BOARD_POWER_ON, OUTPUT);
+    //digitalWrite(BOARD_POWER_ON, HIGH);
 
     pinMode(BOARD_485_EN, OUTPUT);
     digitalWrite(BOARD_485_EN, LOW);
@@ -45,7 +64,6 @@ void setup() {
     Serial.begin(115200);
 
     if (!LittleFS.begin(true)) {
-        Serial.println("Ein Fehler ist beim Mounten von LITTLEFS aufgetreten.");
         return;
     }
 
@@ -53,26 +71,22 @@ void setup() {
     if(loadCredentials(savedSSID, savedPassword)) {
         // Access Point (AP) erstellen mit den geladenen Anmeldeinformationen
         if(WiFi.softAP(savedSSID.c_str(), savedPassword.c_str())) {
-            Serial.println("Access Point erstellt.");
         } else {
-            Serial.println("Access Point konnte nicht erstellt werden.");
             return;
         }
 
         IPAddress IP = WiFi.softAPIP();
-        Serial.print("AP IP-Adresse: ");
-        Serial.println(IP);
     } else {
-        Serial.println("Keine gespeicherten WLAN-Anmeldeinformationen gefunden.");
     }
 
     // Webserver starten
+    sdCard.init();
     webServer.begin();
     modbusScanner.begin();
+    display.init(); 
+    // Weitere Setup-Code...
 }
 
-
 void loop() {
-    // Hier kommt später der Modbus-Code und sonstiger periodischer Code
-    webServer.handleClient();
+    checkTouch();
 }

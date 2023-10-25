@@ -3,15 +3,15 @@
 #include <ESPAsyncWebServer.h>
 #include <Preferences.h>
 #include <LittleFS.h>
+#include "WebSocketHandler.h"
 
 class WebServer {
     static void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
+    WebSocketHandler wsHandler;
    
 public:
     WebServer();
     void begin();
-    void handleClient();
-    
     static bool isConnectedToModbus();
     static size_t getFreeSpace() {
         return LittleFS.totalBytes() - LittleFS.usedBytes();

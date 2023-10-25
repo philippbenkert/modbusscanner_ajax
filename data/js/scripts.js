@@ -1,10 +1,120 @@
-document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
 
 let currentPath = '/logger/'; // speichert den aktuellen Pfad
 let ws; // Globale Variable für die WebSocket-Verbindung
 let requestId = 0;
 const pendingRequests = {};
 
+
+
+function setupWebSocket() {
+    // WebSocket-Verbindung herstellen
+    ws = new WebSocket('ws://' + location.host + '/ws');
+
+ws.onopen = function() {
+    console.log('WebSocket-Verbindung hergestellt.');
+    loadInitialContent();
+};
+
+ws.onmessage = function(event) {
+    const response = JSON.parse(event.data);
+    if (response.action === action + "Response") {
+        resultElement.innerHTML = response.data;
+        if (isScanning) {
+            setTimeout(() => startScan(type), 1000);
+        }
+    } 
+};
+
+ws.onmessage = function(event) {
+    console.log('WebSocket-Nachricht empfangen:', event.data);
+    const response = JSON.parse(event.data);
+    console.log('Geparste Antwort:', response);
+    // Überprüfen Sie, ob es sich um eine Antwort auf eine wsRequest-Anfrage handelt
+    if (pendingRequests[response.id]) {
+        const { resolve, reject } = pendingRequests[response.id];
+        if (response.success) {
+            resolve(response.data);
+        } else {
+            const errorMessage = response.error ? response.error : "Ein unbekannter Fehler ist aufgetreten.";
+            reject(new Error(errorMessage));
+        }
+        delete pendingRequests[response.id];
+
+    } else if (response.success && response.rssi) {
+        // Aktualisieren Sie die HTML-Elemente mit den empfangenen Daten
+        document.getElementById('wifiStatus').innerText = response.rssi;
+        document.getElementById('modbusStatus').innerText = response.modbusStatus;
+        document.getElementById('freeSpace').innerText = response.freeSpace + " kByte"; // Fügen Sie diese Zeile hinzu
+        document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
+        console.log("Status aktualisiert.");
+        
+    } else if (response.success && response.data) {
+        // Wenn die Nachricht die Schlüssel "success" und "data" enthält, fügen Sie den Inhalt in den contentContainer ein
+        document.getElementById('contentContainer').innerHTML = response.data;
+    } else if (response.ssid && response.password) {
+        document.getElementById('ssid').value = response.ssid;
+        document.getElementById('password').value = response.password;
+    } else if (response.baudrate && response.parity && response.stopbits) {
+        document.getElementById('baudrate').value = response.baudrate;
+        document.getElementById('parity').value = response.parity;
+        document.getElementById('stopbits').value = response.stopbits;
+        document.getElementById('deviceAddress').value = response.deviceAddress;
+    } else if (response.name ) {
+        console.log("js Zeile 63 ausgeführt.");
+        updateFileList(response);
+        fetchFiles()
+    }else {
+        // Behandeln Sie spezifische Aktionen
+        switch (response.action) {
+            case 'name':
+                                updateFileList(response.files);
+                break;
+            case 'deleteFileResponse':
+                if (response.success) {
+                    alert('Datei erfolgreich gelöscht!');
+                    fetchFiles(currentPath);
+                } else {
+                    alert('Fehler beim Löschen der Datei.');
+                    console.error("Fehler beim Löschen der Datei:", response.error);
+                }
+                break;
+            case 'uploadFileResponse':
+                if (response.success) {
+                    console.log("Datei erfolgreich hochgeladen.");
+                    alert('Datei hochgeladen!');
+                    fetchFiles();
+                } else {
+                    console.error("Fehler beim Hochladen der Datei:", response.error);
+                    alert('Fehler beim Hochladen der Datei.');
+                }
+                break;
+                // ... andere Aktionen können hier hinzugefügt werden ...
+        }
+    }
+    };
+    ws.onclose = function() {
+        console.log('WebSocket-Verbindung geschlossen.');
+        // Optional: Sie können versuchen, die Verbindung automatisch wiederherzustellen
+        setTimeout(setupWebSocket, 5000);
+    };
+
+    ws.onerror = function(error) {
+        console.error('WebSocket-Fehler:', error);
+    };
+}
+
+function wsRequest(action, data = null) {
+    return new Promise((resolve, reject) => {
+        requestId++;
+        const message = {
+            id: requestId,
+            action: action,
+            data: data
+        };
+        pendingRequests[requestId] = { resolve, reject };
+        ws.send(JSON.stringify(message));
+    });
+    }
 
 function createListItem(content, className = 'list-group-item d-flex justify-content-between align-items-center') {
     const li = document.createElement('li');
@@ -29,8 +139,6 @@ async function deleteFile(filePath) {
     }
 }
 
-
-
 function uploadFile() {
     console.log("uploadFile() aufgerufen.");
     const fileInput = document.getElementById('upload-file');
@@ -45,6 +153,7 @@ function uploadFile() {
         const fileData = event.target.result;
         const message = {
             action: 'uploadFile',
+            path: currentPath, // Hinzufügen des aktuellen Verzeichnisses
             fileName: file.name,
             fileType: file.type,
             data: fileData
@@ -87,6 +196,18 @@ async function loadSettings(endpoint, fields) {
     }
 }
 
+async function getStatus() {
+    const response = await wsRequest('/get-status');
+    updateStatus(response);
+}
+
+function updateStatus(data) {
+    // Aktualisieren Sie den WLAN-Empfangsstärke-Wert
+    document.getElementById('wifiStatus').innerText = data.rssi;
+
+    // Aktualisieren Sie den Modbus-Verbindungsstatus-Wert
+    document.getElementById('modbusStatus').innerText = data.modbusStatus;
+}
 
 function addFormEventListener(formId, actionType) {
     const form = document.getElementById(formId);
@@ -107,16 +228,16 @@ function addFormEventListener(formId, actionType) {
         });
 
         // Hier fügen wir den click-Event-Listener hinzu
-        form.addEventListener('click', function(event) {
-            if (event.target.closest('a') && event.target.closest('li')) {
-                const path = event.target.getAttribute('data-path');
-                if (path) {
-                    // Anstatt einen HTTP-Request zu senden, senden wir eine WebSocket-Nachricht
-                    ws.send(JSON.stringify({ action: 'fetchFiles', path: path }));
-                    event.preventDefault();
-                }
-            }
-        });
+        //form.addEventListener('click', function(event) {
+        //    if (event.target.closest('a') && event.target.closest('li')) {
+        //        const path = event.target.getAttribute('data-path');
+        //        if (path) {
+        //            // Anstatt einen HTTP-Request zu senden, senden wir eine WebSocket-Nachricht
+        //            ws.send(JSON.stringify({ action: 'fetchFiles', path: path }));
+        //            event.preventDefault();
+        //        }
+        //    }
+        //});
     }
 }
 
@@ -180,15 +301,7 @@ function startScan(type) {
     }));
 
     // Der Server sollte eine Antwort mit den Scan-Ergebnissen senden, die von ws.onmessage verarbeitet wird
-    ws.onmessage = function(event) {
-        const response = JSON.parse(event.data);
-        if (response.action === action + "Response") {
-            resultElement.innerHTML = response.data;
-            if (isScanning) {
-                setTimeout(() => startScan(type), 1000);
-            }
-        }
-    };
+    
 }
 
 
@@ -196,8 +309,7 @@ function startScan(type) {
     try {
         // Anfrage über WebSocket senden
         const response = await wsRequest('loadContent', { url: url });
-        document.getElementById('contentContainer').innerHTML = response.data;
-
+        
         if (url.includes('wlan-settings.html')) {
             loadSettings('/get-wlan-settings', ['ssid', 'password']);
         } else if (url.includes('modbus-settings.html')) {
@@ -229,84 +341,6 @@ function startScan(type) {
         console.error("Fehler beim Laden des Inhalts:", error);
     }
     }
-    
-    function setupWebSocket() {
-    // WebSocket-Verbindung herstellen
-    ws = new WebSocket('ws://' + location.host + '/ws');
-
-    ws.onopen = function() {
-        console.log('WebSocket-Verbindung hergestellt.');
-        // Hier können Sie eine Nachricht an den Server senden, z.B.:
-        // ws.send('Hallo Server!');
-    };
-
-    function wsRequest(action, data = null) {
-    return new Promise((resolve, reject) => {
-        requestId++;
-        const message = {
-            id: requestId,
-            action: action,
-            data: data
-        };
-        pendingRequests[requestId] = { resolve, reject };
-        ws.send(JSON.stringify(message));
-    });
-    }
-
-    ws.onmessage = function(event) {
-    console.log('WebSocket-Nachricht empfangen:', event.data);
-    const response = JSON.parse(event.data);
-
-    // Überprüfen Sie, ob es sich um eine Antwort auf eine wsRequest-Anfrage handelt
-    if (pendingRequests[response.id]) {
-        const { resolve, reject } = pendingRequests[response.id];
-        if (response.success) {
-            resolve(response.data);
-        } else {
-            reject(new Error(response.error));
-        }
-        delete pendingRequests[response.id];
-    } else {
-        // Behandeln Sie spezifische Aktionen
-        switch (response.action) {
-            case 'updateFiles':
-                updateFileList(response.files);
-                break;
-            case 'deleteFileResponse':
-                if (response.success) {
-                    alert('Datei erfolgreich gelöscht!');
-                    fetchFiles(currentPath);
-                } else {
-                    alert('Fehler beim Löschen der Datei.');
-                    console.error("Fehler beim Löschen der Datei:", response.error);
-                }
-                break;
-            case 'uploadFileResponse':
-                if (response.success) {
-                    console.log("Datei erfolgreich hochgeladen.");
-                    alert('Datei hochgeladen!');
-                    fetchFiles();
-                } else {
-                    console.error("Fehler beim Hochladen der Datei:", response.error);
-                    alert('Fehler beim Hochladen der Datei.');
-                }
-                break;
-            // ... andere Aktionen können hier hinzugefügt werden ...
-        }
-    }
-};
-
-    
-    ws.onclose = function() {
-        console.log('WebSocket-Verbindung geschlossen.');
-        // Optional: Sie können versuchen, die Verbindung automatisch wiederherzustellen
-        setTimeout(setupWebSocket, 5000);
-    };
-
-    ws.onerror = function(error) {
-        console.error('WebSocket-Fehler:', error);
-    };
-    }
 
     function updateFileList(files) {
         console.log("Empfangene Dateien:", files);
@@ -317,6 +351,11 @@ function startScan(type) {
         if (currentPath !== '/logger/') {
             const backItem = createListItem(`🔙 <a href="#" onclick="fetchFiles('/logger/')">Zurück zum Hauptordner</a>`);
             fileList.appendChild(backItem);
+        }
+    
+        // Überprüfen, ob 'files' ein Array ist, wenn nicht, es in ein Array umwandeln
+        if (!Array.isArray(files)) {
+            files = [files];
         }
         
         const sortedFiles = files.sort((a, b) => {
@@ -342,15 +381,20 @@ function startScan(type) {
             fileList.appendChild(createListItem(content));
         });
     }
+    
 
+    function loadInitialContent() {
+        // Diese Funktion lädt den initialen Inhalt nach dem Verbindungsaufbau
+        loadContent('/wlan-settings.html');
+        fetchData('/get-status', 'freeSpace', 'freeSpace');
+        fetchData('/get-status', 'wifiStatus', 'rssi');
+        fetchData('/get-status', 'modbusStatus', 'modbusStatus');
+        setInterval(() => fetchData('/get-status', 'wifiStatus', 'rssi'), 10000);
+        addFormEventListener('wlan-settings-form', '/set-wlan');
+        addFormEventListener('modbus-settings-form', '/save-modbus-settings');
+    }
     document.addEventListener('DOMContentLoaded', async function() {
     setupWebSocket();
-    await loadContent('/wlan-settings.html');
-    await fetchData('/get-free-space', 'freeSpace', 'freeSpace');
-    await fetchData('/get-status', 'wifiStatus', 'rssi');
-    await fetchData('/get-status', 'modbusStatus', 'modbusStatus');
-    setInterval(() => fetchData('/get-status', 'wifiStatus', 'rssi'), 10000);
-    addFormEventListener('wlan-settings-form', '/set-wlan');
-    addFormEventListener('modbus-settings-form', '/save-modbus-settings');
-});
+    
+    });
 

@@ -1,7 +1,8 @@
 #include "ModbusClientRTU.h"
 #include <HardwareSerial.h>
 
-const uint8_t BOARD_485_EN = 42;
+const uint8_t BOARD_485_EN = 2;
+String getModbusConfig(const char* key);
 
 class ModbusScanner {
 public:

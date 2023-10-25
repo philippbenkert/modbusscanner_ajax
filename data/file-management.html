@@ -1,22 +1,25 @@
-<div class="container-fluid mt-5 full-height">
-    <h1 class="text-center">Dateimanager</h1>
-    
-    <div class="mt-5">
-        <div class="card-header bg-primary text-white">
-            Dateien
-        </div>
-        <ul class="list-group list-group-flush" id="file-list"></ul>
-    </div>
-
-    <div class="mt-5">
-        <div class="card-header bg-primary text-white">
-            Datei hochladen
-        </div>
-        <div class="card-body">
-            <input type="file" id="upload-file" class="form-control mb-3">
-            <button onclick="uploadFile()" class="btn btn-primary">
-                📤 Upload
-            </button>
+<div class="container-fluid mt-5">
+    <section class="container-fluid mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card-header bg-primary text-white">
+                Dateien
+            </div>
+            <ul class="list-group list-group-flush" id="file-list"></ul>
         </div>
     </div>
+    <div class="row mt-5">
+        <div class="col-md-8 offset-md-2">
+            <div class="card-header bg-primary text-white">
+                Datei hochladen
+            </div>
+            <div class="card-body">
+                <input type="file" id="upload-file" class="form-control mb-3">
+                <button onclick="uploadFile()" class="btn btn-primary">
+                    📤 Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
 </div>

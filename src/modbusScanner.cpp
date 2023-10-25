@@ -5,8 +5,8 @@
 #include <esp_task_wdt.h>
 
 
-#define BOARD_485_TX                39
-#define BOARD_485_RX                38
+#define BOARD_485_TX                42
+#define BOARD_485_RX                1
 
 const size_t JSON_DOC_SIZE = 256;
 const char* CONFIG_FILE = "/config/modbus-config.json";

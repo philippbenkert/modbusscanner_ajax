@@ -2,7 +2,7 @@
 #include <LittleFS.h>
 #include "ModbusScanner.h"
 #include <ArduinoJson.h>
-
+#include "WebSocketHandler.h"
 
 constexpr char WLAN_CREDENTIALS_FILE[] = "/config/wlan-credentials.json";
 constexpr char MODBUS_CONFIG_FILE[] = "/config/modbus-config.json";
@@ -11,33 +11,18 @@ constexpr size_t BUFFER_SIZE = 256;
 WebServer::WebServer() : server(80) {}
 AsyncWebSocket ws("/ws"); // Erstellen Sie ein WebSocket-Objekt
 
-
-bool WebServer::isConnectedToModbus() {
-    // Platzhalter Logik:
-    // Wenn Sie eine spezifische Methode oder Eigenschaft haben, um den Modbus-Verbindungsstatus zu überprüfen,
-    // ersetzen Sie den unten stehenden Code durch diese Logik.
-    return true; // Gibt immer "verbunden" zurück. Ersetzen Sie dies durch Ihre eigentliche Überprüfungslogik.
-}
-
 bool WebServer::saveToFile(const char *path, const char *data) {
     File file = LittleFS.open(path, "w");
-    if (!file) {
-        Serial.println("Failed to open file for writing");
-        return false;
-    }
-    if (file.print(data)) {
-        file.close();
-        return true;
-    }
-    return false;
+    if (!file || !file.print(data)) return false;
+    file.close();
+    return true;
 }
 
 bool WebServer::readFromFile(const char *path, char *data, size_t size) {
     File file = LittleFS.open(path, "r");
     if (!file) return false;
-
-    size_t bytesRead = file.readBytes(data, size - 1); // Lesen Sie size-1 Bytes, um Platz für die Nullterminierung zu lassen
-data[bytesRead] = '\0'; // Nullterminierung hinzufügen
+    size_t bytesRead = file.readBytes(data, size - 1);
+    data[bytesRead] = '\0';
     file.close();
     return bytesRead > 0;
 }
@@ -45,38 +30,14 @@ data[bytesRead] = '\0'; // Nullterminierung hinzufügen
 extern ModbusScanner modbusScanner;
 
 void WebServer::begin() {
-    if (!LittleFS.begin()) {
-        Serial.println("Failed to mount LittleFS. Formatting...");
-        LittleFS.format();
-        if (!LittleFS.begin()) {
-            Serial.println("Failed to mount or format LittleFS");
-            return;
-        }
+    if (!LittleFS.begin() && !LittleFS.format() && !LittleFS.begin()) {
+        Serial.println("Failed to mount or format LittleFS");
+        return;
     }
     // WebSocket-Handler hinzufügen
-    ws.onEvent(WebServer::onWebSocketEvent);
+    wsHandler.bindToServer(&server);
     server.addHandler(&ws);
     
-    
-
-    server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
-        request->send(200, "text/plain; charset=UTF-8", "File uploaded");
-    }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-        static File file;
-        if (!index) {
-            if (LittleFS.exists(filename.c_str())) {
-                LittleFS.remove(filename.c_str());
-            }
-            file = LittleFS.open(filename, "w");
-        }
-        if (file) {
-            file.write(data, len);
-            if (final) {
-                file.close();
-            }
-        }
-    });
-
     server.on("/manualscan", HTTP_POST, [](AsyncWebServerRequest *request) {
     if (request->hasHeader("Content-Type") && request->header("Content-Type").equalsIgnoreCase("application/json")) {
         // Der Body enthält JSON-Daten
@@ -101,8 +62,7 @@ void WebServer::begin() {
     } else {
         request->send(400, "text/plain", "Ungültiger Content-Type");
     }
-});
-
+    });
 
     server.on("/autoscan", HTTP_GET, [this](AsyncWebServerRequest *request) {
     try {
@@ -118,8 +78,7 @@ void WebServer::begin() {
         Serial.println("Ein unbekannter Fehler ist aufgetreten.");
         request->send(500, "text/plain; charset=UTF-8", "Ein unbekannter Fehler ist aufgetreten.");
     }
-});
-
+    });
 
     server.on("/save-modbus-settings", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if (request->hasParam("deviceAddress", true) && request->hasParam("baudrate", true) && request->hasParam("parity", true) && request->hasParam("stopbits", true)) {
@@ -142,7 +101,7 @@ void WebServer::begin() {
         } else {
             request->send(500, "text/plain; charset=UTF-8", "Fehler beim Speichern der MODBUS-Einstellungen.");
         }
-}});
+    }});
 
     server.on("/get-modbus-settings", HTTP_GET, [this](AsyncWebServerRequest *request){
         const char* filename = "/config/modbus-config.json";
@@ -176,9 +135,7 @@ void WebServer::begin() {
             request->send(500, "text/plain; charset=UTF-8", "Fehler beim Speichern der WLAN-Einstellungen.");
         }
     }
-});
-
-    
+    });
 
     server.on("/get-wlan-settings", HTTP_GET, [this](AsyncWebServerRequest *request) {
         const char* filename = "/config/wlan-credentials.json";
@@ -217,120 +174,6 @@ void WebServer::begin() {
         request->send(404, "text/plain; charset=UTF-8", "File not found");
     }
     });
-
-
-
     // Server starten
     server.begin();
 }
-
-String WebServer::getFiles(const String& path) {
-    String output;
-    File dir = LittleFS.open(path.c_str());
-    for (File file = dir.openNextFile(); file; file = dir.openNextFile()) {
-        if (output.length()) output += ',';
-        
-        if(file.isDirectory()){
-            output += "{\"name\":\"" + String(file.name()) + "\",\"type\":\"directory\"}";
-        } else {
-            output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + ",\"type\":\"file\"}";
-        }
-    }
-    return "[" + output + "]";
-    }
-
-void WebServer::handleClient() {
-    ws.cleanupClients(); // Bereinigen Sie nicht verbundene WebSocket-Clients
-}
-
-void WebServer::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    switch (type) {
-        case WS_EVT_CONNECT:
-            Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-            break;
-        case WS_EVT_DISCONNECT:
-            Serial.printf("WebSocket client #%u disconnected\n", client->id());
-            break;
-        case WS_EVT_DATA:
-            if (len) {
-                String msg = String((char*)data).substring(0, len);
-                Serial.printf("Received WebSocket message: %s\n", msg.c_str());
-
-                // GET_STATUS
-                if (msg == "GET_STATUS") {
-                    int rssi = WiFi.RSSI();
-                    const char* modbusStatus = WebServer::isConnectedToModbus() ? "Verbunden" : "Getrennt";
-                    char jsonResponse[512];
-                    snprintf(jsonResponse, sizeof(jsonResponse), 
-                        "{"
-                        "\"rssi\":\"%d\","
-                        "\"modbusStatus\":\"%s\""
-                        "}",
-                        rssi, modbusStatus
-                    );
-                    client->text(jsonResponse);
-                }
-
-                // LIST_DIR
-                else if (msg.startsWith("LIST_DIR")) {
-                    String path = msg.substring(8); // Annahme: Die Nachricht hat das Format "LIST_DIR/path/to/dir"
-                    if (path.length() == 0) path = "/logger/";
-
-                    String output;
-                    File dir = LittleFS.open(path);
-                    for (File file = dir.openNextFile(); file; file = dir.openNextFile()) {
-                        if (output.length()) output += ',';
-                        
-                        if(file.isDirectory()){
-                            output += "{\"name\":\"" + String(file.name()) + "\",\"type\":\"directory\"}";
-                        } else {
-                            output += "{\"name\":\"" + String(file.name()) + "\",\"size\":" + String(file.size()) + ",\"type\":\"file\"}";
-                        }
-                    }
-                    client->text("[" + output + "]");
-                }
-                
-                // DOWNLOAD
-                if (msg.startsWith("DOWNLOAD:")) {
-                    String path = msg.substring(9);
-                    if (LittleFS.exists(path.c_str())) {
-                        File file = LittleFS.open(path.c_str(), "r");
-                        String fileContent = file.readString();
-                        client->text("FILE_CONTENT:" + fileContent);
-                        file.close();
-                    } else {
-                        client->text("ERROR:File not found");
-                    }
-                }
-
-                // START_UPLOAD
-                else if (msg.startsWith("START_UPLOAD:")) {
-                    String filename = msg.substring(13);
-                    // ... (Logik zum Starten des Uploads)
-                    client->text("UPLOAD_STARTED");
-                }
-
-                // UPLOAD_CHUNK
-                else if (msg.startsWith("UPLOAD_CHUNK:")) {
-                    String chunkData = msg.substring(13);
-                    // ... (Logik zum Speichern des Chunks)
-                }
-
-                // END_UPLOAD
-                else if (msg == "END_UPLOAD") {
-                    // ... (Logik zum Abschließen des Uploads)
-                    client->text("UPLOAD_COMPLETED");
-                }
-
-                // GET_FREE_SPACE
-                else if (msg == "GET_FREE_SPACE") {
-                    size_t freeSpace = WebServer::getFreeSpace();
-                    String jsonResponse = "{\"freeSpace\":" + String(freeSpace) + "}";
-                    client->text(jsonResponse);
-                }
-            }
-            break;
-        // Sie können auch auf andere Ereignisse reagieren, z.B. WS_EVT_PONG
-    }
-}
-
