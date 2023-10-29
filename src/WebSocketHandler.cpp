@@ -3,7 +3,6 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "modbusScanner.h"
-#include "WebSocketHandlerHelpers.h"
 
 bool isConnectedToModbus();
 size_t getFreeSpace();
