@@ -26,7 +26,8 @@ public:
 
     // LVGL spezifische Methoden
     void lvgl_init();  // Initialisiert LVGL
-    void lvgl_tick();  // Muss regelmäßig aufgerufen werden, um LVGL zu aktualisieren
+    void lvgl_tick();
+      // Muss regelmäßig aufgerufen werden, um LVGL zu aktualisieren
 };
 
 // Deklaration der globalen Funktionen

@@ -1,3 +1,4 @@
+#include "lvgl.h"
 #include <WiFi.h>
 #include "webserver.h"
 #include <LittleFS.h>
@@ -6,6 +7,7 @@
 #include "WebSocketHandler.h"
 #include "TouchPanel.h"
 #include "SDCardHandler.h"
+#include <LovyanGFX.hpp>
 
 //#define BOARD_POWER_ON              4
 
@@ -84,9 +86,19 @@ void setup() {
     webServer.begin();
     modbusScanner.begin();
     display.init(); 
+    display.lvgl_init();
     // Weitere Setup-Code...
 }
 
 void loop() {
-    checkTouch();
+    static uint32_t nextTick = 0;
+    uint32_t currentTime = millis();
+
+    if(currentTime > nextTick) {
+        nextTick = currentTime + lv_timer_handler();
+    }
+
+    lv_task_handler();
+    delay(5);  // Ein kurzes Delay kann hilfreich sein
+
 }

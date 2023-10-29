@@ -11,7 +11,7 @@
 #define TFT_SECONDARY 0x967ADC
 #define TFT_BACKGROUND 0x434A54
 
-String icons[] = {"/wifi.bmp", "/modbus.bmp", "/folder.bmp", "/scan.bmp"};
+String iconPaths[] = {"/wifi.bin", "/modbus.bin", "/folder.bin", "/scan.bin"};
 
 SDCardHandler sdCardHandler;
 extern bool loadCredentials(String& ssid, String& password);
@@ -22,7 +22,7 @@ LGFX::LGFX()
 {
     // Bus-Konfiguration
     auto bus_cfg = _bus_instance.config();
-    bus_cfg.freq_write = 16000000;    
+    bus_cfg.freq_write = 20000000;    
     bus_cfg.pin_wr = 47;             
     bus_cfg.pin_rd = -1;             
     bus_cfg.pin_rs = 0;              
@@ -49,7 +49,7 @@ LGFX::LGFX()
     panel_cfg.offset_rotation = 0;
     panel_cfg.dummy_read_pixel = 8;
     panel_cfg.dummy_read_bits = 1;
-    panel_cfg.readable = false;
+    panel_cfg.readable = true;
     panel_cfg.invert = true;
     panel_cfg.rgb_order = false;
     panel_cfg.dlen_16bit = false;
@@ -85,44 +85,110 @@ LGFX::LGFX()
     setPanel(&_panel_instance);
 }
 
-void LGFX::init()
-{
-    begin();
-    delay(500);  // Warten Sie eine halbe Sekunde
-    setFont(&fonts::Font4); // Setzen der Standard-Schriftart
+static lv_disp_drv_t disp_drv;
+static lv_indev_drv_t indev_drv;
+// Diese Funktion wird von LVGL aufgerufen, um einen Bereich des Displays zu aktualisieren
+void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
+    uint32_t w = (area->x2 - area->x1 + 1);
+    uint32_t h = (area->y2 - area->y1 + 1);
 
-    lvgl_init();  // LVGL initialisieren
+    display.startWrite();
+    display.setAddrWindow(area->x1, area->y1, w, h);
+    display.writePixels((lgfx::rgb565_t *)&color_p->full, w * h);
+    display.endWrite();
 
-    drawStatus();
-    drawMenu();
+    lv_disp_flush_ready(disp);
 }
 
+// Diese Funktion wird von LVGL aufgerufen, um den Touchstatus zu lesen
+static void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
+{
+    uint16_t touchX, touchY;
+
+    bool touched = display.getTouch(&touchX, &touchY);
+
+    if(touched) {
+        data->state = LV_INDEV_STATE_PR;
+        data->point.x = touchX;
+        data->point.y = touchY;
+    } else {
+        data->state = LV_INDEV_STATE_REL;
+    }
+}
+void LGFX::init()
+{
+    // Hier den Initialisierungscode für LGFX einfügen
+    // Zum Beispiel:
+    begin();  // Wenn es eine begin() Methode gibt, die Sie aufrufen möchten
+    
+
+}
 lgfx::Touch_FT5x06* LGFX::getTouchInstance()
 {
     return &_touch_instance;
 }
+
+static void my_lvgl_log_func(const char* log)
+{
+    // Sie können hier Serial.print oder eine andere Methode verwenden, um die Protokolle auszugeben.
+    Serial.println(log);
+}
+
 
 void LGFX::lvgl_init()
 {
     Serial.println("Starting LVGL initialization...");
     lv_init();
     Serial.println("LVGL initialized.");
+    lv_log_register_print_cb(my_lvgl_log_func);
+    
 
-    // Hier können Sie weitere LVGL-Initialisierungscodes hinzufügen, z.B. Display- und Eingabegeräte-Initialisierung
+    static lv_disp_draw_buf_t disp_buf;
+
+// Puffer für den gesamten Bildschirm im PSRAM allokieren
+    static lv_color_t *buf = (lv_color_t *)ps_malloc(TFT_WIDTH * TFT_HEIGHT * sizeof(lv_color_t));
+    if (buf == NULL) {
+    // Fehlerbehandlung: Nicht genug Speicher im PSRAM oder PSRAM ist nicht verfügbar.
+    Serial.println("Fehler: Kann den Puffer im PSRAM nicht allokieren.");
+    return; // oder eine andere geeignete Fehlerbehandlung
 }
+
+    lv_disp_draw_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * TFT_HEIGHT);
+
+
+
+    lv_disp_drv_init(&disp_drv);  // Treiberstruktur initialisieren
+    disp_drv.hor_res = TFT_WIDTH;
+    disp_drv.ver_res = TFT_HEIGHT;
+    disp_drv.flush_cb = my_disp_flush;  // Setzen Sie Ihre Flush-Funktion als Callback
+    disp_drv.draw_buf = &disp_buf;
+    lv_disp_drv_register(&disp_drv);  // Und schließlich registrieren Sie den Treiber
+
+    lv_indev_drv_init(&indev_drv);  // Treiberstruktur initialisieren
+    indev_drv.type = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = my_touchpad_read;  // Setzen Sie Ihre Touch-Lesefunktion als Callback
+    lv_indev_drv_register(&indev_drv);  // Und schließlich registrieren Sie den Treiber
+    
+    drawStatus();
+    drawMenu();
+}
+
+
+
+
 
 void LGFX::lvgl_tick()
 {
-    Serial.println("Starting LVGL tick...");
-    lv_tick_inc(1);  // 1ms tick
-    lv_task_handler();
-    Serial.println("LVGL tick completed.");
+    //Serial.println("Starting LVGL tick...");
+    //lv_tick_inc(1);  // 1ms tick
+    //lv_task_handler();
+    //Serial.println("LVGL tick completed.");
 }
 
 struct MenuItem {
     String text;
     int x, y, w, h;
-    void (*action)(lv_obj_t *, lv_event_t);
+    void (*action)(lv_event_t*);  // Beachten Sie die geänderte Funktionssignatur
 };
 
 MenuItem menuItems[] = {
@@ -133,66 +199,80 @@ MenuItem menuItems[] = {
 };
 
 void drawMenu() {
-    Serial.println("Starting drawing menu...");
-    File file;
-    delay(500);  // Warten Sie eine halbe Sekunde
-
-    int iconSpacing = display.width() / 4;  // Platzierung der Icons nebeneinander
-
     for (int i = 0; i < 4; i++) {
-        file = SD.open(icons[i].c_str());
-        if (file) {
-            if (!display.drawBmp(&file, i * iconSpacing, 1)) {
-                Serial.println("Error drawing BMP image: " + icons[i]);
-            }
-            file.close();
-        } else {
-            Serial.println("Error opening file: " + icons[i]);
-        }
+        MenuItem item = menuItems[i];
+
+        // Button erstellen
+        lv_obj_t * btn = lv_btn_create(lv_scr_act());
+        lv_obj_set_pos(btn, item.x, item.y);
+        lv_obj_set_size(btn, item.w, item.h);
+        
+        // Beschriftung zum Button hinzufügen
+        lv_obj_t * label = lv_label_create(btn);
+        lv_label_set_text(label, item.text.c_str());
+        lv_obj_center(label);
+
+        // Bild zum Button hinzufügen
+        lv_obj_t * img = lv_img_create(btn);
+        lv_img_set_src(img, iconPaths[i].c_str());  // Setzen Sie das Bild mit dem Dateipfad
+        lv_obj_align(img, LV_ALIGN_LEFT_MID, 10, 0); // Beispielpositionierung
+        
+        // Ereignishandler zum Button hinzufügen
+        lv_obj_add_event_cb(btn, item.action, LV_EVENT_CLICKED, NULL);
     }
-    Serial.println("Menu drawing completed.");
 }
 
 
 
 void drawContent(String content) {
-    Serial.println("drawContent: Start");
-    lv_obj_t * label = lv_label_create(lv_scr_act());
+    
+    lv_obj_t *content_container = lv_obj_create(lv_scr_act());
+    lv_obj_set_style_bg_color(content_container, lv_color_hex(0x4A89DC), 0);  // Zum Beispiel ein Blauton
+    lv_obj_set_size(content_container, 200, 100);  // Beispielgröße
+    lv_obj_align(content_container, LV_ALIGN_CENTER, 0, 0);
+
+    // Erstellen Sie ein Textlabel innerhalb des Containers
+    lv_obj_t *label = lv_label_create(content_container);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);  // Weiß
     lv_label_set_text(label, content.c_str());
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
 void drawStatus() {
-    Serial.println("drawStatus: Start");
-
-    Serial.println("Getting WiFi strength...");
+    
     String wifiStrength = webSocketHandler.getWifiStrength();
-    Serial.println("WiFi strength obtained: " + wifiStrength);
-
-    Serial.println("Getting Modbus status...");
     String modbusStatus = webSocketHandler.getModbusStatus();
-    Serial.println("Modbus status obtained: " + modbusStatus);
-
-    Serial.println("Getting free space...");
     String freeSpace = webSocketHandler.getFreeSpaceAsString();
-    Serial.println("Free space obtained: " + freeSpace);
-
     String status = "WLAN-Empfangsstärke: " + wifiStrength + "\n" +
                     "Modbus-Verbindungsstatus: " + modbusStatus + "\n" +
                     "Freier Speicherplatz: " + freeSpace + " kByte";
 
-    drawContent(status);
+    // Container am unteren Bildschirmrand erstellen
+    lv_obj_t * container = lv_obj_create(lv_scr_act());
+    lv_obj_set_width(container, TFT_WIDTH); // Setzt die Breite des Containers auf die Bildschirmbreite
+    lv_obj_set_height(container, 60); // Setzt eine feste Höhe für den Container, z.B. 60 Pixel
+    lv_obj_align(container, LV_ALIGN_BOTTOM_MID, 0, 0); // Ausrichtung am unteren Bildschirmrand
+    lv_obj_set_style_bg_color(container, lv_color_hex(0x4A89DC), 0);  // Zum Beispiel ein Blauton
+    lv_obj_set_style_bg_opa(container, LV_OPA_COVER, 0);
+    lv_obj_set_style_pad_all(container, 10, 0); // Setzt einen Innenabstand für den Container
+
+    // Text zum Container hinzufügen
+    lv_obj_t * label = lv_label_create(container);
+    lv_label_set_text(label, status.c_str());
+    lv_obj_center(label);
 
     Serial.println("drawStatus: End");
 }
+
 
 
 void clearContentArea() {
     lv_obj_clean(lv_scr_act());
 }
 
-void wlanSettingsFunction(lv_obj_t * obj, lv_event_t event) {
-    if(lv_event_get_code(&event) == LV_EVENT_VALUE_CHANGED) {
+void wlanSettingsFunction(lv_event_t * e) {
+    lv_obj_t * obj = lv_event_get_target(e);
+    if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         clearContentArea();
         String wifiSSID;
         String wifiPassword;
@@ -208,27 +288,31 @@ void wlanSettingsFunction(lv_obj_t * obj, lv_event_t event) {
     }
 }
 
-void modbusSettingsFunction(lv_obj_t * obj, lv_event_t event) {
-    if(lv_event_get_code(&event) == LV_EVENT_CLICKED) {
+void modbusSettingsFunction(lv_event_t * e) {
+    lv_obj_t * obj = lv_event_get_target(e);
+    if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         clearContentArea();
         drawContent("Modbus Einstellungen Inhalt...");
     }
 }
 
-void fileManagementFunction(lv_obj_t * obj, lv_event_t event) {
-    if(lv_event_get_code(&event) == LV_EVENT_CLICKED) {
+void fileManagementFunction(lv_event_t * e) {
+    lv_obj_t * obj = lv_event_get_target(e);
+    if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         clearContentArea();
         drawContent("Datei-Management Inhalt...");
     }
 }
 
-void scanFunctionsFunction(lv_obj_t * obj, lv_event_t event) {
-    if(lv_event_get_code(&event) == LV_EVENT_CLICKED) {
+void scanFunctionsFunction(lv_event_t * e) {
+    lv_obj_t * obj = lv_event_get_target(e);
+    if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         clearContentArea();
         drawContent("Scan-Funktionen Inhalt...");
     }
 }
 
+
 void checkTouch() {
-    // LVGL behandelt Touch-Ereignisse automatisch. Sie müssen nur Callbacks für Ihre Widgets hinzufügen.
+    lv_task_handler();
 }
