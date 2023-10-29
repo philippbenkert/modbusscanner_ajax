@@ -3,7 +3,9 @@
 #include "WebSocketHandlerHelpers.h"
 #include "WebSocketHandler.h"
 #include "SDCardHandler.h"
+#include "saira_500.c"
 #include "lvgl.h"  // LVGL-Bibliothek einbinden
+#include <qrcodegen.h>
 
 #define TFT_WHITE 0xFFFF
 #define TFT_BLACK 0x0000
@@ -11,12 +13,17 @@
 #define TFT_SECONDARY 0x967ADC
 #define TFT_BACKGROUND 0x434A54
 
+const int iconSize = 40;
+const int screenPadding = 10;
+const int numItems = 4;
+
 String iconPaths[] = {"/wifi.bin", "/modbus.bin", "/folder.bin", "/scan.bin"};
 
-SDCardHandler sdCardHandler;
+extern SDCardHandler sdCard;
 extern bool loadCredentials(String& ssid, String& password);
 
 WebSocketHandler webSocketHandler;
+
 
 LGFX::LGFX()
 {
@@ -53,7 +60,7 @@ LGFX::LGFX()
     panel_cfg.invert = true;
     panel_cfg.rgb_order = false;
     panel_cfg.dlen_16bit = false;
-    panel_cfg.bus_shared = true;
+    panel_cfg.bus_shared = false;
     _panel_instance.config(panel_cfg);
 
     // Licht-Konfiguration
@@ -134,6 +141,26 @@ static void my_lvgl_log_func(const char* log)
     Serial.println(log);
 }
 
+lv_obj_t *content_container;
+
+void setupContentContainer() {
+    // Erstellt den Container für den Inhalt
+    content_container = lv_obj_create(lv_scr_act());
+    
+    // Position und Größe des Containers setzen
+    int x_pos = 10;  // Beginnen Sie am linken Rand
+    int y_pos = 110; // Direkt unterhalb des Menüs
+    int width = TFT_WIDTH - 20;  // Breite des Bildschirms minus 10 Pixel Abstand auf jeder Seite
+    int height = TFT_HEIGHT - 180; // Der verbleibende Platz auf dem Bildschirm nach dem Menü
+
+    lv_obj_set_pos(content_container, x_pos, y_pos);
+    lv_obj_set_size(content_container, width, height);
+
+    // Optional: Einige Stil-Einstellungen, falls Sie den Container hervorheben möchten
+    lv_obj_set_style_bg_color(content_container, lv_color_hex(0xE0E0E0), 0); // Ein heller Hintergrund
+    lv_obj_set_style_border_width(content_container, 2, 0);
+    lv_obj_set_style_border_color(content_container, lv_color_hex(0x000000), 0);
+}
 
 void LGFX::lvgl_init()
 {
@@ -143,6 +170,7 @@ void LGFX::lvgl_init()
     lv_log_register_print_cb(my_lvgl_log_func);
     
 
+    
     static lv_disp_draw_buf_t disp_buf;
 
 // Puffer für den gesamten Bildschirm im PSRAM allokieren
@@ -169,8 +197,15 @@ void LGFX::lvgl_init()
     indev_drv.read_cb = my_touchpad_read;  // Setzen Sie Ihre Touch-Lesefunktion als Callback
     lv_indev_drv_register(&indev_drv);  // Und schließlich registrieren Sie den Treiber
     
-    drawStatus();
+    static lv_style_t new_style;
+    lv_style_init(&new_style);
+    lv_style_set_text_font(&new_style, &lv_font_saira_500);
+    lv_obj_add_style(lv_scr_act(), &new_style, 0);
+    
+    setupContentContainer();
     drawMenu();
+    drawStatus();
+
 }
 
 
@@ -186,37 +221,49 @@ void LGFX::lvgl_tick()
 }
 
 struct MenuItem {
-    String text;
-    int x, y, w, h;
+    const char* iconPath;  // Pfad zum Iconsymbol
     void (*action)(lv_event_t*);  // Beachten Sie die geänderte Funktionssignatur
 };
 
 MenuItem menuItems[] = {
-    {"WLAN Einstellungen", 10, 10, 150, 40, wlanSettingsFunction},
-    {"Modbus Einstellungen", 170, 10, 150, 40, modbusSettingsFunction},
-    {"Datei-Management", 10, 60, 150, 40, fileManagementFunction},
-    {"Scan-Funktionen", 170, 60, 150, 40, scanFunctionsFunction},
+    {"/wifi.bin", wlanSettingsFunction},
+    {"/modbus.bin", modbusSettingsFunction},
+    {"/folder.bin", fileManagementFunction},
+    {"/scan.bin", scanFunctionsFunction},
 };
 
 void drawMenu() {
-    for (int i = 0; i < 4; i++) {
+    int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
+
+    for (int i = 0; i < numItems; i++) {
         MenuItem item = menuItems[i];
 
         // Button erstellen
         lv_obj_t * btn = lv_btn_create(lv_scr_act());
-        lv_obj_set_pos(btn, item.x, item.y);
-        lv_obj_set_size(btn, item.w, item.h);
-        
-        // Beschriftung zum Button hinzufügen
-        lv_obj_t * label = lv_label_create(btn);
-        lv_label_set_text(label, item.text.c_str());
-        lv_obj_center(label);
+        lv_obj_set_pos(btn, screenPadding + i * (iconSize + spaceBetweenItems), screenPadding);
+        lv_obj_set_size(btn, iconSize, iconSize);
 
-        // Bild zum Button hinzufügen
+        // Bild zum Button hinzufügen (unter Verwendung von SDCardHandler)
+        if (sdCard.isInitialized()) {
+    File file = sdCard.open(item.iconPath, "r");
+    if (file) {
+        // Hier lesen Sie den Dateiinhalt in einen Puffer
+        uint8_t* buffer = new uint8_t[file.size()];
+        file.read(buffer, file.size());
+
         lv_obj_t * img = lv_img_create(btn);
-        lv_img_set_src(img, iconPaths[i].c_str());  // Setzen Sie das Bild mit dem Dateipfad
-        lv_obj_align(img, LV_ALIGN_LEFT_MID, 10, 0); // Beispielpositionierung
-        
+        lv_img_set_src(img, buffer);  // Übergeben Sie den Puffer an LVGL
+        lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+
+        file.close();
+        delete[] buffer;  // Vergessen Sie nicht, den Puffer freizugeben, wenn Sie fertig sind
+    } else {
+        Serial.println("Fehler beim Öffnen der Datei: " + String(item.iconPath));
+    }
+} else {
+    Serial.println("SD-Karte nicht initialisiert.");
+}
+
         // Ereignishandler zum Button hinzufügen
         lv_obj_add_event_cb(btn, item.action, LV_EVENT_CLICKED, NULL);
     }
@@ -224,27 +271,20 @@ void drawMenu() {
 
 
 
+
 void drawContent(String content) {
     
-    lv_obj_t *content_container = lv_obj_create(lv_scr_act());
-    lv_obj_set_style_bg_color(content_container, lv_color_hex(0x4A89DC), 0);  // Zum Beispiel ein Blauton
-    lv_obj_set_size(content_container, 200, 100);  // Beispielgröße
-    lv_obj_align(content_container, LV_ALIGN_CENTER, 0, 0);
-
-    // Erstellen Sie ein Textlabel innerhalb des Containers
     lv_obj_t *label = lv_label_create(content_container);
-    lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), 0);  // Weiß
     lv_label_set_text(label, content.c_str());
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_text_font(label, &lv_font_saira_500, 0);  // Setzen Sie die Schriftart für das Label
+    lv_obj_center(label);
 }
 
 void drawStatus() {
     
-    String wifiStrength = webSocketHandler.getWifiStrength();
     String modbusStatus = webSocketHandler.getModbusStatus();
     String freeSpace = webSocketHandler.getFreeSpaceAsString();
-    String status = "WLAN-Empfangsstärke: " + wifiStrength + "\n" +
-                    "Modbus-Verbindungsstatus: " + modbusStatus + "\n" +
+    String status = "Modbus-Verbindungsstatus: " + modbusStatus + "\n" +
                     "Freier Speicherplatz: " + freeSpace + " kByte";
 
     // Container am unteren Bildschirmrand erstellen
@@ -259,34 +299,75 @@ void drawStatus() {
     // Text zum Container hinzufügen
     lv_obj_t * label = lv_label_create(container);
     lv_label_set_text(label, status.c_str());
+    lv_obj_set_style_text_font(label, &lv_font_saira_500, 0);  // Setzen Sie die Schriftart für das Label
     lv_obj_center(label);
 
     Serial.println("drawStatus: End");
 }
 
-
-
 void clearContentArea() {
-    lv_obj_clean(lv_scr_act());
+    lv_obj_clean(content_container);
 }
 
+
 void wlanSettingsFunction(lv_event_t * e) {
+    Serial.println("wlanSettingsFunction: Start");
     lv_obj_t * obj = lv_event_get_target(e);
     if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        Serial.println("Button clicked");
         clearContentArea();
         String wifiSSID;
         String wifiPassword;
 
         if (loadCredentials(wifiSSID, wifiPassword)) {
+            Serial.println("Loaded credentials successfully");
             String content = "WLAN Einstellungen:\n";
             content += "SSID: " + wifiSSID + "\n";
             content += "Passwort: " + wifiPassword;
             drawContent(content);
+
+            // QR-Code generieren
+            char qrText[256];
+            sprintf(qrText, "WIFI:T:WPA;S:%s;P:%s;H:false;;", wifiSSID.c_str(), wifiPassword.c_str());
+            uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
+            uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
+            bool success = qrcodegen_encodeText(qrText, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
+                                                qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
+
+            if (success) {
+                Serial.println("QR code generation successful");
+                int size = qrcodegen_getSize(qrcode);
+                lv_color_t *buf = (lv_color_t *)malloc(size * size * sizeof(lv_color_t));
+                for(int y = 0; y < size; y++) {
+                    for(int x = 0; x < size; x++) {
+                        buf[y * size + x] = qrcodegen_getModule(qrcode, x, y) ? lv_color_make(0, 0, 0) : lv_color_make(255, 255, 255);
+                    }
+                }
+
+                lv_img_dsc_t qr_img_dsc;  
+                qr_img_dsc.data = (uint8_t *)buf;
+                qr_img_dsc.header.w = size;
+                qr_img_dsc.header.h = size;
+                qr_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+
+                lv_obj_t * img = lv_img_create(content_container);
+                lv_img_set_src(img, &qr_img_dsc);
+                lv_obj_set_size(img, 300, 300);  
+                lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+            } else {
+                Serial.println("QR code generation failed");
+            }
+
         } else {
+            Serial.println("Failed to load credentials");
             drawContent("Fehler beim Laden der WLAN-Einstellungen.");
         }
     }
+    Serial.println("wlanSettingsFunction: End");
 }
+
+
+
 
 void modbusSettingsFunction(lv_event_t * e) {
     lv_obj_t * obj = lv_event_get_target(e);

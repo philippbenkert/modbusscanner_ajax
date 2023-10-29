@@ -35,9 +35,9 @@ void drawMenu();
 void drawContent(String content);
 void drawStatus();
 void checkTouch();
-void wlanSettingsFunction(lv_obj_t * obj, lv_event_t event);
-void modbusSettingsFunction(lv_obj_t * obj, lv_event_t event);
-void fileManagementFunction(lv_obj_t * obj, lv_event_t event);
-void scanFunctionsFunction(lv_obj_t * obj, lv_event_t event);
+void wlanSettingsFunction(lv_event_t * event);
+void modbusSettingsFunction(lv_event_t * event);
+void fileManagementFunction(lv_event_t * event);
+void scanFunctionsFunction(lv_event_t * event);
 
 extern LGFX display;
