@@ -2,8 +2,10 @@
 #include "TouchPanel.h"  // und andere notwendige Header
 #include "SDCardHandler.h"
 #include "saira_500.c"
+#include <vector>
+#include <cstdint>
 
-const int iconSize = 40;
+const int iconSize = 60;
 const int screenPadding = 10;
 const int numItems = 4;
 lv_obj_t *content_container;
@@ -14,6 +16,7 @@ WebSocketHandler webSocketHandler;
 String iconPaths[] = {"/wifi.bin", "/modbus.bin", "/folder.bin", "/scan.bin"};
 
 // Implementierung von drawMenu
+std::vector<uint8_t*> imageBuffers;
 
 MenuItem menuItems[] = {
     {"/wifi.bin", wlanSettingsFunction},
@@ -24,6 +27,7 @@ MenuItem menuItems[] = {
 
 void drawMenu() {
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
+    uint8_t* buffers[numItems] = {nullptr};
 
     for (int i = 0; i < numItems; i++) {
         MenuItem item = menuItems[i];
@@ -35,25 +39,31 @@ void drawMenu() {
 
         // Bild zum Button hinzufügen (unter Verwendung von SDCardHandler)
         if (sdCard.isInitialized()) {
-    File file = sdCard.open(item.iconPath, "r");
-    if (file) {
-        // Hier lesen Sie den Dateiinhalt in einen Puffer
-        uint8_t* buffer = new uint8_t[file.size()];
-        file.read(buffer, file.size());
+        File file = sdCard.open(item.iconPath, "r");
+        if (file) {
+            buffers[i] = new uint8_t[file.size()];
+            file.read(buffers[i], file.size());
+            imageBuffers.push_back(buffers[i]);  // Puffer zum Vektor hinzufügen
+
+        
+        lv_img_dsc_t img_desc;
+        img_desc.data = buffers[i];
+        img_desc.header.w = 50;  // Breite des Bildes (muss angegeben werden)
+        img_desc.header.h = 50;  // Höhe des Bildes (muss angegeben werden)
+        img_desc.header.cf = LV_IMG_CF_TRUE_COLOR;  // Farbformat (angepasst an das Bildformat)
 
         lv_obj_t * img = lv_img_create(btn);
-        lv_img_set_src(img, buffer);  // Übergeben Sie den Puffer an LVGL
+        lv_img_set_src(img, &img_desc);
         lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
 
         file.close();
-        delete[] buffer;  // Vergessen Sie nicht, den Puffer freizugeben, wenn Sie fertig sind
+
     } else {
         Serial.println("Fehler beim Öffnen der Datei: " + String(item.iconPath));
     }
 } else {
     Serial.println("SD-Karte nicht initialisiert.");
 }
-
         // Ereignishandler zum Button hinzufügen
         lv_obj_add_event_cb(btn, item.action, LV_EVENT_CLICKED, NULL);
     }

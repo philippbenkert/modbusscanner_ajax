@@ -9,9 +9,11 @@ extern bool loadCredentials(String& ssid, String& password);
 void wlanSettingsFunction(lv_event_t * e) {
     Serial.println("wlanSettingsFunction: Start");
     lv_obj_t * obj = lv_event_get_target(e);
+    
     if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         Serial.println("Button clicked");
         clearContentArea();
+        
         String wifiSSID;
         String wifiPassword;
 
@@ -22,18 +24,26 @@ void wlanSettingsFunction(lv_event_t * e) {
             content += "Passwort: " + wifiPassword;
             drawContent(content);
 
-            // QR-Code generieren
             char qrText[256];
             sprintf(qrText, "WIFI:T:WPA;S:%s;P:%s;H:false;;", wifiSSID.c_str(), wifiPassword.c_str());
+            
             uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
             uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
+            
             bool success = qrcodegen_encodeText(qrText, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
                                                 qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
 
             if (success) {
                 Serial.println("QR code generation successful");
+                
                 int size = qrcodegen_getSize(qrcode);
                 lv_color_t *buf = (lv_color_t *)malloc(size * size * sizeof(lv_color_t));
+
+                if (buf == NULL) {
+                    Serial.println("Memory allocation for buffer failed!");
+                    return;
+                }
+                
                 for(int y = 0; y < size; y++) {
                     for(int x = 0; x < size; x++) {
                         buf[y * size + x] = qrcodegen_getModule(qrcode, x, y) ? lv_color_make(0, 0, 0) : lv_color_make(255, 255, 255);
@@ -48,8 +58,11 @@ void wlanSettingsFunction(lv_event_t * e) {
 
                 lv_obj_t * img = lv_img_create(content_container);
                 lv_img_set_src(img, &qr_img_dsc);
-                lv_obj_set_size(img, 300, 300);  
+                lv_obj_set_size(img, 200, 200);  
                 lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+
+                free(buf);  // Freigabe des Speichers
+
             } else {
                 Serial.println("QR code generation failed");
             }
@@ -61,6 +74,7 @@ void wlanSettingsFunction(lv_event_t * e) {
     }
     Serial.println("wlanSettingsFunction: End");
 }
+
 
 void drawContent(String content) {
     
