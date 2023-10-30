@@ -9,22 +9,19 @@
 #include "SDCardHandler.h"
 #include <LovyanGFX.hpp>
 
+// Konstanten
 //#define BOARD_POWER_ON              4
-
 #define BOARD_485_EN                2
 //#define GPIO_PUSE                   16
 
+// Globale Objekte
 LGFX display;
 SDCardHandler sdCard;
-
-std::string ssid;
-std::string password;
-
 WebServer webServer;
 extern ModbusScanner modbusScanner;
 
 bool loadCredentials(String& savedSSID, String& savedPassword) {
-    if (LittleFS.exists("/config/wlan-credentials.json")) {  // Ändern Sie den Dateinamen zu wlan-credentials.json
+    if (LittleFS.exists("/config/wlan-credentials.json")) {
         File file = LittleFS.open("/config/wlan-credentials.json", "r");
         if (file) {
             DynamicJsonDocument doc(1024);
@@ -48,46 +45,42 @@ String getWlanSettingsAsJson() {
         serializeJson(doc, output);
         return output;
     }
-    return "{}"; // Leeres JSON, wenn keine Einstellungen gefunden wurden
+    return "{}"; // Return empty JSON if no settings were found
 }
 
 void setup() {
-    // Serial-Kommunikation beginnen
-    //pinMode(GPIO_PUSE, OUTPUT);
-    // ... (Ihr anderer Initialisierungscode, falls vorhanden)
-
-    // Peripheral power supply is enabled, the Pin must be set to HIGH to use PCIE, RS485
-    //pinMode(BOARD_POWER_ON, OUTPUT);
-    //digitalWrite(BOARD_POWER_ON, HIGH);
-
-    pinMode(BOARD_485_EN, OUTPUT);
-    digitalWrite(BOARD_485_EN, LOW);
-
+    // Initialize Serial communication
     Serial.begin(115200);
 
+    // Initialize LittleFS
     if (!LittleFS.begin(true)) {
+        Serial.println("Error initializing LittleFS");
         return;
     }
 
+    // Load WLAN credentials
     String savedSSID, savedPassword;
     if(loadCredentials(savedSSID, savedPassword)) {
-        // Access Point (AP) erstellen mit den geladenen Anmeldeinformationen
+        // Create Access Point (AP) with loaded credentials
         if(WiFi.softAP(savedSSID.c_str(), savedPassword.c_str())) {
+            IPAddress IP = WiFi.softAPIP();
+            Serial.println("AP started with IP: " + IP.toString());
         } else {
+            Serial.println("Error starting AP");
             return;
         }
-
-        IPAddress IP = WiFi.softAPIP();
     } else {
+        Serial.println("No saved WLAN credentials found");
     }
 
-    // Webserver starten
+    // Initialize other components
+    pinMode(BOARD_485_EN, OUTPUT);
+    digitalWrite(BOARD_485_EN, LOW);
     sdCard.init();
     webServer.begin();
     modbusScanner.begin();
     display.init(); 
     display.lvgl_init();
-    // Weitere Setup-Code...
 }
 
 void loop() {
@@ -99,6 +92,5 @@ void loop() {
     }
 
     lv_task_handler();
-    delay(5);  // Ein kurzes Delay kann hilfreich sein
-
+    delay(5);  // A short delay can be beneficial
 }
