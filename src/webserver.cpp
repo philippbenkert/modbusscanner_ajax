@@ -3,11 +3,14 @@
 #include "ModbusScanner.h"
 #include <ArduinoJson.h>
 #include "WebSocketHandler.h"
+#include <DNSServer.h>
 
 constexpr char WLAN_CREDENTIALS_FILE[] = "/config/wlan-credentials.json";
 constexpr char MODBUS_CONFIG_FILE[] = "/config/modbus-config.json";
 constexpr size_t BUFFER_SIZE = 256;
 
+const byte DNS_PORT = 53;
+DNSServer dnsServer;
 WebServer::WebServer() : server(80) {}
 AsyncWebSocket ws("/ws"); // Erstellen Sie ein WebSocket-Objekt
 
@@ -37,7 +40,12 @@ void WebServer::begin() {
     // WebSocket-Handler hinzufügen
     wsHandler.bindToServer(&server);
     server.addHandler(&ws);
-    
+    dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+
+    server.onNotFound([](AsyncWebServerRequest *request) {
+        request->send(LittleFS, "/index.html", "text/html");
+    });
+
     server.on("/manualscan", HTTP_POST, [](AsyncWebServerRequest *request) {
     if (request->hasHeader("Content-Type") && request->header("Content-Type").equalsIgnoreCase("application/json")) {
         // Der Body enthält JSON-Daten
@@ -177,3 +185,5 @@ void WebServer::begin() {
     // Server starten
     server.begin();
 }
+
+

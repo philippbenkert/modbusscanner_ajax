@@ -27,7 +27,6 @@ MenuItem menuItems[] = {
 
 void drawMenu() {
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
-    uint8_t* buffers[numItems] = {nullptr};
 
     for (int i = 0; i < numItems; i++) {
         MenuItem item = menuItems[i];
@@ -37,39 +36,15 @@ void drawMenu() {
         lv_obj_set_pos(btn, screenPadding + i * (iconSize + spaceBetweenItems), screenPadding);
         lv_obj_set_size(btn, iconSize, iconSize);
 
-        // Bild zum Button hinzufügen (unter Verwendung von SDCardHandler)
-        if (sdCard.isInitialized()) {
-        File file = sdCard.open(item.iconPath, "r");
-        if (file) {
-            buffers[i] = new uint8_t[file.size()];
-            file.read(buffers[i], file.size());
-            imageBuffers.push_back(buffers[i]);  // Puffer zum Vektor hinzufügen
-
-        
-        lv_img_dsc_t img_desc;
-        img_desc.data = buffers[i];
-        img_desc.header.w = 50;  // Breite des Bildes (muss angegeben werden)
-        img_desc.header.h = 50;  // Höhe des Bildes (muss angegeben werden)
-        img_desc.header.cf = LV_IMG_CF_TRUE_COLOR;  // Farbformat (angepasst an das Bildformat)
-
+        // Bild zum Button hinzufügen, wenn Bilddaten vorhanden sind
         lv_obj_t * img = lv_img_create(btn);
-        lv_img_set_src(img, &img_desc);
+        lv_img_set_src(img, String("S:" + String(item.iconPath)).c_str());  // Verwenden Sie das LVGL-Dateisystem-Präfix
         lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
 
-        file.close();
-
-    } else {
-        Serial.println("Fehler beim Öffnen der Datei: " + String(item.iconPath));
-    }
-} else {
-    Serial.println("SD-Karte nicht initialisiert.");
-}
         // Ereignishandler zum Button hinzufügen
         lv_obj_add_event_cb(btn, item.action, LV_EVENT_CLICKED, NULL);
     }
 }
-
-
 
 void drawStatus() {
     
@@ -124,6 +99,3 @@ void setupContentContainer() {
     void clearContentArea() {
     lv_obj_clean(content_container);
     }
-
-    
-

@@ -8,6 +8,9 @@
 #include "TouchPanel.h"
 #include "SDCardHandler.h"
 #include <LovyanGFX.hpp>
+#include <DNSServer.h>
+
+
 
 // Konstanten
 //#define BOARD_POWER_ON              4
@@ -19,6 +22,7 @@ LGFX display;
 SDCardHandler sdCard;
 WebServer webServer;
 extern ModbusScanner modbusScanner;
+extern DNSServer dnsServer;
 
 bool loadCredentials(String& savedSSID, String& savedPassword) {
     if (LittleFS.exists("/config/wlan-credentials.json")) {
@@ -93,4 +97,6 @@ void loop() {
 
     lv_task_handler();
     delay(5);  // A short delay can be beneficial
+    dnsServer.processNextRequest();  // DNS-Server aktualisieren
+
 }

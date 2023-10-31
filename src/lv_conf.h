@@ -32,14 +32,14 @@
 /*Enable features to draw on transparent background.
  *It's required if opa, and transform_* style properties are used.
  *Can be also used if the UI is above another layer, e.g. an OSD menu or video player.*/
-#define LV_COLOR_SCREEN_TRANSP 0
+#define LV_COLOR_SCREEN_TRANSP 1
 
 /* Adjust color mix functions rounding. GPUs might calculate color mix (blending) differently.
  * 0: round down, 64: round up from x.75, 128: round up from half, 192: round up from x.25, 254: round up */
 #define LV_COLOR_MIX_ROUND_OFS 0
 
 /*Images pixels with this color will not be drawn if they are chroma keyed)*/
-#define LV_COLOR_CHROMA_KEY lv_color_hex(0x00ff00)         /*pure green*/
+#define LV_COLOR_CHROMA_KEY lv_color_hex(0xFFFFFF)         /*pure green*/
 
 /*=========================
    MEMORY SETTINGS
@@ -629,7 +629,7 @@
 #endif
 
 /*PNG decoder library*/
-#define LV_USE_PNG 0
+#define LV_USE_PNG 1
 
 /*BMP decoder library*/
 #define LV_USE_BMP 0
@@ -642,7 +642,7 @@
 #define LV_USE_GIF 0
 
 /*QR code library*/
-#define LV_USE_QRCODE 0
+#define LV_USE_QRCODE 1
 
 /*FreeType library*/
 #define LV_USE_FREETYPE 0

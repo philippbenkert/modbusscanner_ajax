@@ -1,6 +1,6 @@
 #include "SDCardHandler.h"
 
-SDCardHandler::SDCardHandler() : _isInitialized(false), spi(HSPI) {  // Verwenden Sie HSPI oder VSPI je nach Bedarf
+SDCardHandler::SDCardHandler() : _isInitialized(false), spi(HSPI), db(nullptr) {
 }
 
 bool SDCardHandler::init() {
@@ -24,4 +24,28 @@ File SDCardHandler::open(const char* path, const char* mode) {
         Serial.printf("SDCardHandler: Fehler beim Öffnen der Datei '%s'.\n", path);
     }
     return file;
+}
+
+bool SDCardHandler::openDatabase(const char* dbPath) {
+    if (sqlite3_open(dbPath, &db) != SQLITE_OK) {
+        Serial.println("Fehler beim Öffnen der SQLite-Datenbank!");
+        return false;
+    }
+    return true;
+}
+
+bool SDCardHandler::executeSQL(const char* sql) {
+    char* errMsg;
+    if (sqlite3_exec(db, sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
+        Serial.printf("SQLite-Fehler: %s\n", errMsg);
+        sqlite3_free(errMsg);
+        return false;
+    }
+    return true;
+}
+
+SDCardHandler::~SDCardHandler() {
+    if (db) {
+        sqlite3_close(db);
+    }
 }

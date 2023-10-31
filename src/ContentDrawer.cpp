@@ -1,7 +1,8 @@
 #include "ContentDrawer.h"
 #include "TouchPanel.h"
 #include "MenuDrawer.h"
-#include <qrcodegen.h>
+#include "qrcodegen.h"
+
 
 extern WebSocketHandler webSocketHandler;
 extern bool loadCredentials(String& ssid, String& password);
@@ -21,52 +22,12 @@ void wlanSettingsFunction(lv_event_t * e) {
             Serial.println("Loaded credentials successfully");
 
             char qrText[256];
-            snprintf(qrText, sizeof(qrText), "WIFI:T:WPA;S:%s;P:%s;H:false;;", wifiSSID.c_str(), wifiPassword.c_str());
-            
-            uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
-            uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
-            
-            Serial.println("Attempting to generate QR code");
-            bool success = qrcodegen_encodeText(qrText, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
-                                                qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
-
-            if (success) {
-                Serial.println("QR code generation successful");
-                
-                int size = qrcodegen_getSize(qrcode);
-                Serial.println("Attempting to allocate memory for QR code image");
-                lv_color_t *buf = (lv_color_t *)malloc(size * size * sizeof(lv_color_t));
-
-                if (buf == NULL) {
-                    Serial.println("Memory allocation for buffer failed!");
-                    return;
-                }
-                
-                Serial.println("Drawing QR code to buffer");
-                for(int y = 0; y < size; y++) {
-                    for(int x = 0; x < size; x++) {
-                        buf[y * size + x] = qrcodegen_getModule(qrcode, x, y) ? lv_color_make(0, 0, 0) : lv_color_make(255, 255, 255);
-                    }
-                }
-
-                lv_img_dsc_t qr_img_dsc;  
-                qr_img_dsc.data = (uint8_t *)buf;
-                qr_img_dsc.header.w = size;
-                qr_img_dsc.header.h = size;
-                qr_img_dsc.header.cf = LV_IMG_CF_TRUE_COLOR;
-
-                Serial.println("Displaying QR code on screen");
-                lv_obj_t * img = lv_img_create(content_container);
-                lv_img_set_src(img, &qr_img_dsc);
-                lv_obj_set_size(img, 200, 200);  
-                lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
-
-                free(buf);  // Freigabe des Speichers
-
-            } else {
-                Serial.println("QR code generation failed");
-                drawContent("Fehler beim Generieren des QR-Codes für WLAN-Einstellungen.");
-            }
+            snprintf(qrText, sizeof(qrText), "WIFI:T:WPA2;S:%s;P:%s;H:false;;", wifiSSID.c_str(), wifiPassword.c_str());
+lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
+            // Erstellen eines QR-Codes mit LVGL-Funktionen
+            lv_obj_t * qrcode = lv_qrcode_create(content_container, 300, lv_color_black(), lv_color_white());
+            lv_obj_align(qrcode, LV_ALIGN_CENTER, 0, 0);
+            lv_qrcode_update(qrcode, qrText, strlen(qrText));  // Die Länge des Textes hinzufügen
 
         } else {
             Serial.println("Failed to load credentials");
@@ -75,6 +36,8 @@ void wlanSettingsFunction(lv_event_t * e) {
     }
     Serial.println("wlanSettingsFunction: End");
 }
+
+
 
 void drawContent(String content) {
     

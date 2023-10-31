@@ -9,7 +9,17 @@
 #define TFT_PRIMARY 0x4A89DC
 #define TFT_SECONDARY 0x967ADC
 #define TFT_BACKGROUND 0x434A54
+uint32_t lastActivityTime = 0;
+bool isDisplayInStandby = false;
+const uint32_t STANDBY_TIMEOUT = 30000; // 30 Sekunden
 
+void* my_open_cb(lv_fs_drv_t * drv, const char * path, lv_fs_mode_t mode);
+lv_fs_res_t my_close_cb(lv_fs_drv_t * drv, void * file_p);
+lv_fs_res_t my_read_cb(lv_fs_drv_t * drv, void * file_p, void * buf, uint32_t btr, uint32_t * br);
+lv_fs_res_t my_seek_cb(lv_fs_drv_t * drv, void * file_p, uint32_t pos, lv_fs_whence_t whence);
+lv_fs_res_t my_tell_cb(lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p);
+
+extern SDCardHandler sdCard;
 
 LGFX::LGFX()
 {
@@ -97,17 +107,25 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
 static void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
 {
     uint16_t touchX, touchY;
-
     bool touched = display.getTouch(&touchX, &touchY);
 
     if(touched) {
         data->state = LV_INDEV_STATE_PR;
         data->point.x = touchX;
         data->point.y = touchY;
+
+        // Aktualisieren Sie die Zeit der letzten Aktivität
+        lastActivityTime = millis();
+        
+        // Überprüfen Sie, ob der Bildschirm im Standby-Modus ist
+        if (isDisplayInStandby) {
+            // Hintergrundbeleuchtung wieder einschalten
+_light_instance.setBrightness(255);  // Setzt die Hintergrundbeleuchtung auf maximale Helligkeit
+            isDisplayInStandby = false;
+        }
     } else {
         data->state = LV_INDEV_STATE_REL;
     }
-
 }
 
 void LGFX::init()
@@ -122,6 +140,20 @@ lgfx::Touch_FT5x06* LGFX::getTouchInstance()
     return &_touch_instance;
 }
 
+void init_lvgl_fs() {
+    static lv_fs_drv_t fs_drv;  // Muss statisch sein
+    lv_fs_drv_init(&fs_drv);
+
+    fs_drv.letter = 'S';
+    fs_drv.open_cb = my_open_cb;
+    fs_drv.close_cb = my_close_cb;
+    fs_drv.read_cb = my_read_cb;
+    fs_drv.seek_cb = my_seek_cb;
+    fs_drv.tell_cb = my_tell_cb;
+
+    lv_fs_drv_register(&fs_drv);
+}
+
 static void my_lvgl_log_func(const char* log)
 {
     // Sie können hier Serial.print oder eine andere Methode verwenden, um die Protokolle auszugeben.
@@ -134,33 +166,26 @@ void LGFX::lvgl_init()
     lv_init();
     Serial.println("LVGL initialized.");
     lv_log_register_print_cb(my_lvgl_log_func);
-    
     static lv_disp_draw_buf_t disp_buf;
-
+    init_lvgl_fs();
 // Puffer für den gesamten Bildschirm im PSRAM allokieren
     static lv_color_t *buf = (lv_color_t *)ps_malloc(TFT_WIDTH * TFT_HEIGHT * sizeof(lv_color_t));
     if (buf == NULL) {
     // Fehlerbehandlung: Nicht genug Speicher im PSRAM oder PSRAM ist nicht verfügbar.
     Serial.println("Fehler: Kann den Puffer im PSRAM nicht allokieren.");
     return; // oder eine andere geeignete Fehlerbehandlung
-}
-
+    }
     lv_disp_draw_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * TFT_HEIGHT);
-
     lv_disp_drv_init(&disp_drv);  // Treiberstruktur initialisieren
     disp_drv.hor_res = TFT_WIDTH;
     disp_drv.ver_res = TFT_HEIGHT;
     disp_drv.flush_cb = my_disp_flush;  // Setzen Sie Ihre Flush-Funktion als Callback
     disp_drv.draw_buf = &disp_buf;
     lv_disp_drv_register(&disp_drv);  // Und schließlich registrieren Sie den Treiber
-
     lv_indev_drv_init(&indev_drv);  // Treiberstruktur initialisieren
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = my_touchpad_read;  // Setzen Sie Ihre Touch-Lesefunktion als Callback
     lv_indev_drv_register(&indev_drv);  // Und schließlich registrieren Sie den Treiber
-    
-    
-    
     setupContentContainer();
     drawMenu();
     drawStatus();
@@ -175,6 +200,62 @@ void LGFX::lvgl_tick()
     //Serial.println("LVGL tick completed.");
 }
 
+void checkStandby() {
+    if (!isDisplayInStandby && millis() - lastActivityTime > STANDBY_TIMEOUT) {
+        // Hintergrundbeleuchtung ausschalten
+        display.setBrightness(0);
+        isDisplayInStandby = true;
+    }
+}
 void checkTouch() {
     lv_task_handler();
+    checkStandby();
+    
+
+}
+
+void *my_open_cb(lv_fs_drv_t * drv, const char * path, lv_fs_mode_t mode) {
+    File *file = new File(); // Dynamisch ein File-Objekt erstellen
+    if (mode == LV_FS_MODE_WR) {
+        *file = sdCard.open(path, FILE_WRITE);
+    } else {
+        *file = sdCard.open(path, FILE_READ);
+    }
+    if (file->available()) {
+        return file;
+    } else {
+        delete file; // Speicher freigeben, wenn die Datei nicht geöffnet werden konnte
+        return nullptr;
+    }
+}
+
+lv_fs_res_t my_close_cb(lv_fs_drv_t * drv, void * file_p) {
+    File *file = (File *)file_p;
+    file->close();
+    delete file; // Speicher freigeben
+    return LV_FS_RES_OK;
+}
+
+lv_fs_res_t my_read_cb(lv_fs_drv_t * drv, void * file_p, void * buf, uint32_t btr, uint32_t * br) {
+    File *file = (File *)file_p;
+    *br = file->read((uint8_t *)buf, btr);
+    return LV_FS_RES_OK;
+}
+
+lv_fs_res_t my_seek_cb(lv_fs_drv_t * drv, void * file_p, uint32_t pos, lv_fs_whence_t whence) {
+    File *file = (File *)file_p;
+    if (whence == LV_FS_SEEK_SET) {
+        file->seek(pos);
+    } else if (whence == LV_FS_SEEK_CUR) {
+        file->seek(file->position() + pos);
+    } else if (whence == LV_FS_SEEK_END) {
+        file->seek(file->size() - pos);
+    }
+    return LV_FS_RES_OK;
+}
+
+lv_fs_res_t my_tell_cb(lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p) {
+    File *file = (File *)file_p;
+    *pos_p = file->position();
+    return LV_FS_RES_OK;
 }
