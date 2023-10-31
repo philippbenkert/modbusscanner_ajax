@@ -120,7 +120,7 @@ static void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data
         // Überprüfen Sie, ob der Bildschirm im Standby-Modus ist
         if (isDisplayInStandby) {
             // Hintergrundbeleuchtung wieder einschalten
-_light_instance.setBrightness(255);  // Setzt die Hintergrundbeleuchtung auf maximale Helligkeit
+            display.setBrightness(255);  // Setzt die Hintergrundbeleuchtung auf maximale Helligkeit
             isDisplayInStandby = false;
         }
     } else {
