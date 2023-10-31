@@ -186,6 +186,7 @@ void LGFX::lvgl_init()
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = my_touchpad_read;  // Setzen Sie Ihre Touch-Lesefunktion als Callback
     lv_indev_drv_register(&indev_drv);  // Und schließlich registrieren Sie den Treiber
+    lv_png_init();
     setupContentContainer();
     drawMenu();
     drawStatus();
@@ -209,7 +210,7 @@ void checkStandby() {
 }
 void checkTouch() {
     lv_task_handler();
-    checkStandby();
+    
     
 
 }

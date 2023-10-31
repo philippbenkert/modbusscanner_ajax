@@ -13,16 +13,16 @@ lv_obj_t *content_container;
 // Externe Verweise
 extern SDCardHandler sdCard;
 WebSocketHandler webSocketHandler;
-String iconPaths[] = {"/wifi.bin", "/modbus.bin", "/folder.bin", "/scan.bin"};
+String iconPaths[] = {"/wifi.png", "/modbus.png", "/folder.png", "/scan.png"};
 
 // Implementierung von drawMenu
 std::vector<uint8_t*> imageBuffers;
 
 MenuItem menuItems[] = {
-    {"/wifi.bin", wlanSettingsFunction},
-    {"/modbus.bin", modbusSettingsFunction},
-    {"/folder.bin", fileManagementFunction},
-    {"/scan.bin", scanFunctionsFunction},
+    {"/wifi.png", wlanSettingsFunction},
+    {"/modbus.png", modbusSettingsFunction},
+    {"/folder.png", fileManagementFunction},
+    {"/scan.png", scanFunctionsFunction},
 };
 
 void drawMenu() {
@@ -34,7 +34,7 @@ void drawMenu() {
         // Button erstellen
         lv_obj_t * btn = lv_btn_create(lv_scr_act());
         lv_obj_set_pos(btn, screenPadding + i * (iconSize + spaceBetweenItems), screenPadding);
-        lv_obj_set_size(btn, iconSize, iconSize);
+        lv_obj_set_size(btn, 48, 58);
 
         // Bild zum Button hinzufügen, wenn Bilddaten vorhanden sind
         lv_obj_t * img = lv_img_create(btn);

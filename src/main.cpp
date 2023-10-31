@@ -98,5 +98,5 @@ void loop() {
     lv_task_handler();
     delay(5);  // A short delay can be beneficial
     dnsServer.processNextRequest();  // DNS-Server aktualisieren
-
+    checkStandby();
 }

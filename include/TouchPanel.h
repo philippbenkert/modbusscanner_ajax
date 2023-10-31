@@ -18,7 +18,7 @@ private:
     lgfx::Bus_Parallel8 _bus_instance;    // MCU8080 8B
     lgfx::Light_PWM     _light_instance;
     lgfx::Touch_FT5x06  _touch_instance;
-
+    
 public:
     LGFX();
     void init();
@@ -36,5 +36,5 @@ void checkTouch();
 //void modbusSettingsFunction(lv_event_t * event);
 //void fileManagementFunction(lv_event_t * event);
 //void scanFunctionsFunction(lv_event_t * event);
-
+void checkStandby();
 extern LGFX display;
