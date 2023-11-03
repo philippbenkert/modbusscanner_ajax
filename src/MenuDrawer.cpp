@@ -25,23 +25,26 @@ MenuItem menuItems[] = {
     {"/scan.png", scanFunctionsFunction},
 };
 
+lv_obj_t* iconCache[numItems] = { NULL };
+
 void drawMenu() {
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
 
     for (int i = 0; i < numItems; i++) {
         MenuItem item = menuItems[i];
 
-        // Button erstellen
         lv_obj_t * btn = lv_btn_create(lv_scr_act());
         lv_obj_set_pos(btn, screenPadding + i * (iconSize + spaceBetweenItems), screenPadding);
-        lv_obj_set_size(btn, 48, 58);
+        lv_obj_set_size(btn, iconSize, iconSize);
 
-        // Bild zum Button hinzufügen, wenn Bilddaten vorhanden sind
-        lv_obj_t * img = lv_img_create(btn);
-        lv_img_set_src(img, String("S:" + String(item.iconPath)).c_str());  // Verwenden Sie das LVGL-Dateisystem-Präfix
-        lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+        if(!iconCache[i]) {
+            // Laden Sie das Symbol nur, wenn es noch nicht im Cache ist
+            iconCache[i] = lv_img_create(btn);
+            lv_img_set_src(iconCache[i], String("S:" + String(item.iconPath)).c_str());
+        }
 
-        // Ereignishandler zum Button hinzufügen
+        lv_obj_align(iconCache[i], LV_ALIGN_CENTER, 0, 5);
+
         lv_obj_add_event_cb(btn, item.action, LV_EVENT_CLICKED, NULL);
     }
 }
@@ -49,26 +52,37 @@ void drawMenu() {
 void drawStatus() {
     
     String modbusStatus = webSocketHandler.getModbusStatus();
-    String freeSpace = webSocketHandler.getFreeSpaceAsString();
-    String status = "Modbus-Verbindungsstatus: " + modbusStatus + "\n" +
-                    "Freier Speicherplatz: " + freeSpace + " kByte";
+    String freeSpace = webSocketHandler.getFreeSpaceAsString(); // Ich nehme an, dass hier "MB" bereits enthalten ist
 
-    // Container am unteren Bildschirmrand erstellen
+    // Hauptcontainer
     lv_obj_t * container = lv_obj_create(lv_scr_act());
-    lv_obj_set_width(container, TFT_WIDTH); // Setzt die Breite des Containers auf die Bildschirmbreite
-    lv_obj_set_height(container, 60); // Setzt eine feste Höhe für den Container, z.B. 60 Pixel
-    lv_obj_align(container, LV_ALIGN_BOTTOM_MID, 0, 0); // Ausrichtung am unteren Bildschirmrand
-    lv_obj_set_style_bg_color(container, lv_color_hex(0x4A89DC), 0);  // Zum Beispiel ein Blauton
+    lv_obj_set_width(container, TFT_WIDTH);
+    lv_obj_set_height(container, 40); // reduzierte Höhe
+    lv_obj_align(container, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(container, lv_color_hex(0x4A89DC), 0);
     lv_obj_set_style_bg_opa(container, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_all(container, 10, 0); // Setzt einen Innenabstand für den Container
+    lv_obj_set_style_pad_left(container, 10, 0);
+    lv_obj_set_style_pad_right(container, 10, 0);
 
-    // Text zum Container hinzufügen
-    lv_obj_t * label = lv_label_create(container);
-    lv_label_set_text(label, status.c_str());
-    lv_obj_set_style_text_font(label, &lv_font_saira_500, 0);  // Setzen Sie die Schriftart für das Label
-    lv_obj_center(label);
+    // Deaktivieren des Scrollbalkens für den Hauptcontainer
+    lv_obj_set_scrollbar_mode(container, LV_SCROLLBAR_MODE_OFF);
 
-    Serial.println("drawStatus: End");
+    // Modbus-Status-Symbol
+    lv_obj_t * modbusSymbol = lv_obj_create(container);
+    lv_obj_set_size(modbusSymbol, 16, 16);
+    lv_obj_set_style_bg_color(modbusSymbol, modbusStatus == "Verbunden" ? lv_color_hex(0x00FF00) : lv_color_hex(0xFF0000), 0);
+    lv_obj_set_style_bg_opa(modbusSymbol, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(modbusSymbol, 8, 0); // für einen Kreis
+    lv_obj_align(modbusSymbol, LV_ALIGN_LEFT_MID, 20, 0); // 20 Pixel vom linken Rand
+
+    lv_obj_t * modbusLabel = lv_label_create(container);
+    lv_label_set_text(modbusLabel, "Modbus");
+    lv_obj_align_to(modbusLabel, modbusSymbol, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+
+    // Label für den freien Speicherplatz (ohne separates Symbol)
+    lv_obj_t * spaceLabel = lv_label_create(container);
+    lv_label_set_text(spaceLabel, freeSpace.c_str());
+    lv_obj_align(spaceLabel, LV_ALIGN_RIGHT_MID, -5, 0);
 }
 
 

@@ -17,10 +17,10 @@ private:
     sqlite3* db;
 public:
     SDCardHandler();
+    bool mkdir(const char* path);
     bool init();
     File open(const char* path, const char* mode);
     bool isInitialized() const { return _isInitialized; }
-    
     // SQLite-Operationen
     bool openDatabase(const char* dbPath);
     bool executeSQL(const char* sql);

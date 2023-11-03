@@ -34,7 +34,6 @@ extern ModbusScanner modbusScanner;
 
 void WebServer::begin() {
     if (!LittleFS.begin() && !LittleFS.format() && !LittleFS.begin()) {
-        Serial.println("Failed to mount or format LittleFS");
         return;
     }
     // WebSocket-Handler hinzufügen

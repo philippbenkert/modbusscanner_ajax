@@ -17,14 +17,11 @@ ModbusScanner modbusScanner(Serial2);
 
 
 ModbusScanner::ModbusScanner(HardwareSerial& serial, int8_t rtsPin) : node(rtsPin) {
-    Serial.println("Initializing ModbusScanner...");
     deviceAddress = getModbusConfig("deviceAddress").toInt();
     if(deviceAddress == 0) deviceAddress = 1;
-    Serial.println("ModbusScanner initialized.");
 }
 
 bool ModbusScanner::isClientReachable() {
-    Serial.println("Checking client reachability...");
     Error res = node.addRequest(0, deviceAddress, READ_HOLD_REGISTER, 0, 1);
     if (res == SUCCESS) {
         return true;
@@ -36,7 +33,6 @@ bool ModbusScanner::isClientReachable() {
 }
 
 void ModbusScanner::begin() {
-    Serial.println("Scanning registers...");
 
     uint32_t baudRate = getModbusConfig("baudrate").toInt();
     if(baudRate == 0) baudRate = 19200;  // Standardwert
@@ -68,25 +64,16 @@ void ModbusScanner::begin() {
     if (Serial2.available()) {
         String receivedData = Serial2.readString();
         if (receivedData.startsWith("Echo Test")) {
-            Serial.println("Serial2 Echo-Test erfolgreich!");
         } else {
-            Serial.println("Echo-Test fehlgeschlagen. Empfangene Daten stimmen nicht überein.");
         }
     } else {
-        Serial.println("Keine Daten von Serial2 empfangen. Echo-Test fehlgeschlagen.");
     }
-
     node.begin(Serial2);  // Verwenden Sie hier Serial2
-    Serial.println("Finished scanning registers.");
 }
-
-
 
 String ModbusScanner::scanRegisters() {
     String result = "Function,Address,Value\n";
-
     if (!modbusScanner.isClientReachable()) {
-        Serial.println("Modbus client is not reachable!");
         return result;
     }
     // Führen Sie Ihre Modbus-Operationen hier aus
@@ -107,7 +94,6 @@ void handleData(ModbusMessage msg, uint32_t token)
         responseBuffer[i++] = byte;
         Serial.printf("%02X ", byte);
     }
-    Serial.println("");
 }
 
 bool isValidFunctionCode(uint8_t fc) {
@@ -126,11 +112,7 @@ bool isValidFunctionCode(uint8_t fc) {
 }
 
 String ModbusScanner::scanFunction(uint16_t address, uint8_t function) {
-    Serial.print("Scanning function: ");
-    Serial.print(function);
-    Serial.print(", Address: ");
-    Serial.println(address);
-    
+        
     String result = "";
     uint8_t fc = 0;  // Funktion Code
 
@@ -152,16 +134,11 @@ String ModbusScanner::scanFunction(uint16_t address, uint8_t function) {
 
     // Überprüfen Sie, ob der Funktionscode gültig ist, bevor Sie die Anfrage senden
     if (!isValidFunctionCode(fc)) {
-        Serial.println("Ungültiger Funktionscode!");
         return "Error: Ungültiger Funktionscode\n";
     }
-
     esp_task_wdt_reset();  // Watchdog zurücksetzen
-
     Error res = node.addRequest(0, deviceAddress, fc, address, 1);
-
     esp_task_wdt_reset();  // Watchdog erneut zurücksetzen nach potenziell blockierendem Aufruf
-
     if (res == SUCCESS) {
         result = "Function " + String(function) + "," + String(address) + "," + String(responseBuffer[0]) + "\n";
     } else {
@@ -170,7 +147,6 @@ String ModbusScanner::scanFunction(uint16_t address, uint8_t function) {
         result = "Function " + String(function) + "," + String(address) + ",Error: " + String((const char *)me) + "\n";
         // Hier können Sie zusätzliche Fehlerbehandlungslogik hinzufügen, z.B. die Schleife oder Funktion frühzeitig beenden
     }
-
     return result;
 }
 

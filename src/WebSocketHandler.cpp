@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "modbusScanner.h"
+#include "SDCardHandler.h"
 
 bool isConnectedToModbus();
 size_t getFreeSpace();
@@ -77,8 +78,14 @@ String WebSocketHandler::getModbusStatus() {
 }
 
 String WebSocketHandler::getFreeSpaceAsString() {
-    size_t freeSpace = getFreeSpace();
-    return String(freeSpace);
+    if (!SD.begin()) {
+        return "SD Fehler!";  // Oder einen anderen Fehler-String
+    }
+
+    uint64_t freeSpaceKB = SD.totalBytes() - SD.usedBytes(); // Freien Speicher in Bytes berechnen
+    uint64_t freeSpaceMB = freeSpaceKB / (1024 * 1024);  // Von Bytes auf Megabytes umrechnen
+
+    return String(freeSpaceMB) + " MB";
 }
 
 void WebSocketHandler::handleGetStatus(AsyncWebSocketClient *client) {
@@ -165,11 +172,9 @@ void WebSocketHandler::handleLoadContent(AsyncWebSocketClient *client, const Str
 
     String content = readFileContent(receivedUrl);
     if (content.length() > 0) {
-        Serial.println("Sending file content in response...");
         String jsonResponse = "{\"success\":true, \"data\":\"" + escapeJsonString(content) + "\"}";
         client->text(jsonResponse);
     } else {
-        Serial.println("File not found or empty. Sending error response...");
         String jsonResponse = "{\"success\":false, \"error\":\"Datei nicht gefunden oder leer.\"}";
         client->text(jsonResponse);
     }

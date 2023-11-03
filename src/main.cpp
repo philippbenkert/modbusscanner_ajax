@@ -9,8 +9,10 @@
 #include "SDCardHandler.h"
 #include <LovyanGFX.hpp>
 #include <DNSServer.h>
-
-
+#include "FileManagement.h"
+#include "WLANSettings.h"
+#include <Wire.h>
+#include "RTClib.h"
 
 // Konstanten
 //#define BOARD_POWER_ON              4
@@ -23,6 +25,8 @@ SDCardHandler sdCard;
 WebServer webServer;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
+RTC_DS3231 rtc;
+
 
 bool loadCredentials(String& savedSSID, String& savedPassword) {
     if (LittleFS.exists("/config/wlan-credentials.json")) {
@@ -58,8 +62,19 @@ void setup() {
 
     // Initialize LittleFS
     if (!LittleFS.begin(true)) {
-        Serial.println("Error initializing LittleFS");
         return;
+    }
+
+    Wire.begin(10, 11);  // SDA auf GPIO10, SCL auf GPIO11
+    if (!rtc.begin()) {
+        Serial.println("RTC konnte nicht gefunden werden!");
+        while (1);
+    }
+
+    if (rtc.lostPower()) {
+        Serial.println("RTC hat die Zeit verloren. Setze auf die aktuelle Zeit.");
+        // Setze die RTC-Zeit auf die Kompilierungszeit
+        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     }
 
     // Load WLAN credentials
@@ -68,13 +83,10 @@ void setup() {
         // Create Access Point (AP) with loaded credentials
         if(WiFi.softAP(savedSSID.c_str(), savedPassword.c_str())) {
             IPAddress IP = WiFi.softAPIP();
-            Serial.println("AP started with IP: " + IP.toString());
         } else {
-            Serial.println("Error starting AP");
             return;
         }
     } else {
-        Serial.println("No saved WLAN credentials found");
     }
 
     // Initialize other components
@@ -99,4 +111,14 @@ void loop() {
     delay(5);  // A short delay can be beneficial
     dnsServer.processNextRequest();  // DNS-Server aktualisieren
     checkStandby();
+
+    // RTC-Update (z.B. jede Sekunde)
+    static uint32_t lastTime = 0;
+    if (millis() - lastTime > 1000) {
+        lastTime = millis();
+        DateTime now = rtc.now();
+        
+        // Hier können Sie die aktuelle Zeit und das Datum verwenden
+    Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
+    }
 }
