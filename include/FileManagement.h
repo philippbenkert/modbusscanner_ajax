@@ -13,6 +13,7 @@ extern lv_obj_t * value_label2;
 
 void fileManagementFunction(lv_event_t *e);
 void slider_event_cb(lv_event_t *e);
-void updateChart(int days, int endTemp);
+void readRecipesFromFile();
+
 
 #endif

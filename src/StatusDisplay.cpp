@@ -8,6 +8,7 @@
 void settingsBtn_event_cb(lv_event_t * e);
 void msgbox_event_cb(lv_event_t * e);
 lv_obj_t * dateTimeLabel = nullptr;
+lv_obj_t *dstSwitch = nullptr; // Definition of the switch object
 
 // Hier fügen Sie alle externen Verweise ein, die im Status-Teil benötigt werden
 extern WebSocketHandler webSocketHandler;
@@ -129,11 +130,13 @@ void drawStatus() {
 
 }
 
-    void dst_switch_event_cb(lv_event_t * e) {
+void dst_switch_event_cb(lv_event_t * e) {
     lv_obj_t * obj = lv_event_get_target(e);
-    // Check if the switch is in the "on" state
-    dstEnabled = lv_obj_get_state(obj) & LV_STATE_CHECKED;
-    adjustForDST(); // Überprüfen Sie sofort, ob eine Anpassung erforderlich ist
+    dstEnabled = lv_obj_get_state(obj); // oder lv_obj_get_state(obj) & LV_STATE_CHECKED für lvgl v7
+    saveDSTEnabled(); // Speichere den neuen Zustand
+
+    // Möglicherweise müssen Sie hier die Zeit sofort anpassen
+    adjustForDST();
 }
 
 // Diese Funktion wird aufgerufen, wenn das Einstellschlüssel-Symbol angeklickt wird
@@ -169,7 +172,7 @@ void drawStatus() {
     DateTime now = getRTCDateTime(); // Obtain the current DateTime from RTC
     setDateTimeRollersToCurrent(); // Pass the 'now' as argument
 
-    lv_obj_t * dstSwitch = lv_switch_create(datetimeContainer);
+    lv_obj_t *dstSwitch = lv_switch_create(datetimeContainer);
     lv_obj_align(dstSwitch, LV_ALIGN_CENTER, 0, 50);
     lv_obj_add_event_cb(dstSwitch, dst_switch_event_cb, LV_EVENT_CLICKED, NULL);
     if (dstEnabled) {

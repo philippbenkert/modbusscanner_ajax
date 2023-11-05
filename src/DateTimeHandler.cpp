@@ -2,27 +2,36 @@
 #include <TimeLib.h>
 #include "RTCControl.h"
 #include <Preferences.h>
+#include "StatusDisplay.h"
+
 
 extern RTC_DS3231 rtc;
 
 Preferences preferences;
 
 void saveDSTEnabled() {
-  preferences.begin("settings", false); // "settings" ist der Namespace für Ihre Einstellungen
+  Serial.println("Saving dstEnabled value to NVS");
+  preferences.begin("settings", false);
   preferences.putBool("dstEnabled", dstEnabled);
   preferences.end();
 }
 
-void updateDSTStatus() {
-  // Setzen Sie hier den UI-Schalter und andere relevante Komponenten entsprechend `dstEnabled`
-  // ...
-  adjustForDST(); // Überprüfen und ggf. anpassen
+void loadDSTEnabled() {
+  preferences.begin("settings", true);
+  dstEnabled = preferences.getBool("dstEnabled", false);
+  Serial.print("Loaded dstEnabled value from NVS: ");
+  Serial.println(dstEnabled);
+  preferences.end();
 }
 
-void loadDSTEnabled() {
-  preferences.begin("settings", true); // ReadOnly-Modus
-  dstEnabled = preferences.getBool("dstEnabled", false); // Standardmäßig `false`, wenn noch nicht gesetzt
-  preferences.end();
+void updateDSTStatus() {
+  if (dstSwitch != nullptr) {
+    if (dstEnabled) {
+      lv_obj_add_state(dstSwitch, LV_STATE_CHECKED);
+    } else {
+      lv_obj_clear_state(dstSwitch, LV_STATE_CHECKED);
+    }
+  }
 }
 
 void adjustForDST() {

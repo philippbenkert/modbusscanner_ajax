@@ -98,6 +98,8 @@ void setup() {
     digitalWrite(BOARD_485_EN, LOW);
     loadDSTEnabled(); // Lade den DST-Zustand
     updateDSTStatus(); // Aktualisiere den Systemstatus entsprechend
+    readRecipesFromFile();
+
     sdCard.init();
     webServer.begin();
     modbusScanner.begin();
