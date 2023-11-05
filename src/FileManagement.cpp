@@ -4,6 +4,9 @@
 #include "qrcodegen.h"
 #include "SDCardHandler.h"
 
+#define DATA_POINT_LABEL 1  // Eindeutiger Identifikator für Datenpunkt-Labels
+
+
 // Definitionen und Implementierungen
 lv_obj_t * slider1;
 lv_obj_t * slider2;
@@ -51,22 +54,18 @@ void updateChart(int days, int endTemp) {
         deleteDataPointLabels();
     }
 
-
-
     // Entfernen Sie alle vorherigen Datenpunkt-Labels
-    lv_obj_t *child = lv_obj_get_child(chart, 0);
-    int32_t child_id = 0;
-    while (child) {
-        int32_t user_data = *((int32_t*)lv_obj_get_user_data(child));
-        if (user_data == 1) {
-            lv_obj_t *next_child = lv_obj_get_child(chart, child_id+1);
-            lv_obj_del(child);
-            child = next_child;
-        } else {
-            child = lv_obj_get_child(chart, child_id+1);
-            child_id++;
-        }
-    }
+    // lv_obj_t *child = lv_obj_get_child(chart, 0);
+    //while (child) {
+    //    int user_data = (int)lv_obj_get_user_data(child);
+    //    if (user_data == DATA_POINT_LABEL) {
+    //        lv_obj_t *next_child = lv_obj_get_child(chart, lv_obj_get_index(child) + 1);
+    //        lv_obj_del(child);
+    //        child = next_child;
+    //    } else {
+    //        child = lv_obj_get_child(chart, lv_obj_get_index(child) + 1);
+    //    }
+    //}
 
     lv_color_t red_color = LV_COLOR_MAKE(255, 0, 0);
     ser = lv_chart_add_series(chart, red_color, LV_CHART_AXIS_PRIMARY_Y);
@@ -76,15 +75,15 @@ void updateChart(int days, int endTemp) {
     lv_chart_set_next_value(chart, ser, 20); // Starttemperatur immer +20°C
 
     for (int i = 1; i <= days; i++) {
-    int curr_temp = 20 + ((endTemp - 20) * i / days); // lineare Interpolation
-    lv_chart_set_next_value(chart, ser, curr_temp);
+        // Calculate the temperature
+        int curr_temp = 20 + ((endTemp - 20) * i / days); // If this causes truncation errors, consider using floating point division and rounding.
+        lv_chart_set_next_value(chart, ser, curr_temp);
 
-    // Hier erstellen wir ein Label für jeden Datenpunkt
-    lv_obj_t * point_label = lv_label_create(chart);
-    lv_label_set_text_fmt(point_label, "%d°C", curr_temp);
-    int label_value = 1;
-    lv_obj_set_user_data(point_label, &label_value); 
-    data_labels[i-1] = point_label;  // Speichern Sie die Referenz
+        // Create and position the label
+        lv_obj_t *point_label = lv_label_create(chart);
+        lv_label_set_text_fmt(point_label, "%d°C", curr_temp);
+        lv_obj_set_user_data(point_label, (void*)(intptr_t)DATA_POINT_LABEL);
+        data_labels[i - 1] = point_label;
 
     // Positionieren Sie das Label basierend auf der X- und Y-Position des Datenpunkts
     int x_pos = (i * (TFT_WIDTH - 20) / days) - 10;  // -10, um das Label zu zentrieren
@@ -92,6 +91,8 @@ void updateChart(int days, int endTemp) {
     lv_obj_set_pos(point_label, x_pos, y_pos);
     }
 }
+
+
 
 void fileManagementFunction(lv_event_t *e) {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
@@ -143,8 +144,6 @@ void fileManagementFunction(lv_event_t *e) {
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, -20, 20);
     lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
     
-    
-
     ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
     if (!ser) {
         return;
@@ -157,14 +156,4 @@ void fileManagementFunction(lv_event_t *e) {
 
     updateChart(3, -20);
 
-
-    // Beschriftung für den ganz linken Datenpunkt
-    //lv_obj_t * left_label = lv_label_create(chart);
-    //lv_label_set_text(left_label, "+20°C");
-    //lv_obj_set_pos(left_label, 0, (150 - (20 + 20) * 150 / 40) - 20);
-
-    // Beschriftung für den ganz rechten Datenpunkt
-    //lv_obj_t * right_label = lv_label_create(chart);
-    //lv_label_set_text(right_label, "-20°C");
-    //lv_obj_set_pos(right_label, TFT_WIDTH - 30, (150 - (-20 + 20) * 150 / 40) - 20);
 }

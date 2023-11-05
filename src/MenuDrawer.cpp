@@ -4,6 +4,8 @@
 #include "saira_500.c"
 #include <vector>
 #include <cstdint>
+#include "RTCControl.h"
+#include "StatusDisplay.h"
 
 const int iconSize = 60;
 const int screenPadding = 10;
@@ -49,48 +51,12 @@ void drawMenu() {
     }
 }
 
-void drawStatus() {
-    
-    String modbusStatus = webSocketHandler.getModbusStatus();
-    String freeSpace = webSocketHandler.getFreeSpaceAsString(); // Ich nehme an, dass hier "MB" bereits enthalten ist
-
-    // Hauptcontainer
-    lv_obj_t * container = lv_obj_create(lv_scr_act());
-    lv_obj_set_width(container, TFT_WIDTH);
-    lv_obj_set_height(container, 40); // reduzierte Höhe
-    lv_obj_align(container, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_style_bg_color(container, lv_color_hex(0x4A89DC), 0);
-    lv_obj_set_style_bg_opa(container, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_left(container, 10, 0);
-    lv_obj_set_style_pad_right(container, 10, 0);
-
-    // Deaktivieren des Scrollbalkens für den Hauptcontainer
-    lv_obj_set_scrollbar_mode(container, LV_SCROLLBAR_MODE_OFF);
-
-    // Modbus-Status-Symbol
-    lv_obj_t * modbusSymbol = lv_obj_create(container);
-    lv_obj_set_size(modbusSymbol, 16, 16);
-    lv_obj_set_style_bg_color(modbusSymbol, modbusStatus == "Verbunden" ? lv_color_hex(0x00FF00) : lv_color_hex(0xFF0000), 0);
-    lv_obj_set_style_bg_opa(modbusSymbol, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(modbusSymbol, 8, 0); // für einen Kreis
-    lv_obj_align(modbusSymbol, LV_ALIGN_LEFT_MID, 20, 0); // 20 Pixel vom linken Rand
-
-    lv_obj_t * modbusLabel = lv_label_create(container);
-    lv_label_set_text(modbusLabel, "Modbus");
-    lv_obj_align_to(modbusLabel, modbusSymbol, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
-
-    // Label für den freien Speicherplatz (ohne separates Symbol)
-    lv_obj_t * spaceLabel = lv_label_create(container);
-    lv_label_set_text(spaceLabel, freeSpace.c_str());
-    lv_obj_align(spaceLabel, LV_ALIGN_RIGHT_MID, -5, 0);
-}
-
-
 void setupContentContainer() {
     
     static lv_style_t new_style;
     lv_style_init(&new_style);
-    lv_style_set_text_font(&new_style, &lv_font_saira_500);
+    //lv_style_set_text_font(&new_style, &lv_font_saira_500);
+    lv_style_set_text_font(&new_style, LV_FONT_DEFAULT); // Verwenden Sie LV_FONT_DEFAULT oder ein anderes eingebautes Font
     lv_obj_add_style(lv_scr_act(), &new_style, 0);
     // Erstellt den Container für den Inhalt
     content_container = lv_obj_create(lv_scr_act());

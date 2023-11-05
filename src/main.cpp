@@ -12,7 +12,8 @@
 #include "FileManagement.h"
 #include "WLANSettings.h"
 #include <Wire.h>
-#include "RTClib.h"
+#include "RTCControl.h"
+#include "DateTimeHandler.h"
 
 // Konstanten
 //#define BOARD_POWER_ON              4
@@ -20,13 +21,16 @@
 //#define GPIO_PUSE                   16
 
 // Globale Objekte
+RTC_DS3231 rtc;
 LGFX display;
 SDCardHandler sdCard;
 WebServer webServer;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
-RTC_DS3231 rtc;
 
+DateTime getRTCDateTime() {
+    return rtc.now();
+}
 
 bool loadCredentials(String& savedSSID, String& savedPassword) {
     if (LittleFS.exists("/config/wlan-credentials.json")) {
@@ -92,12 +96,14 @@ void setup() {
     // Initialize other components
     pinMode(BOARD_485_EN, OUTPUT);
     digitalWrite(BOARD_485_EN, LOW);
+    loadDSTEnabled(); // Lade den DST-Zustand
+    updateDSTStatus(); // Aktualisiere den Systemstatus entsprechend
     sdCard.init();
     webServer.begin();
     modbusScanner.begin();
     display.init(); 
     display.lvgl_init();
-}
+    }
 
 void loop() {
     static uint32_t nextTick = 0;
