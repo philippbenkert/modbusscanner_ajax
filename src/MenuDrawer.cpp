@@ -77,5 +77,7 @@ void setupContentContainer() {
     }
 
     void clearContentArea() {
-    lv_obj_clean(content_container);
+    if (content_container && lv_obj_is_valid(content_container)) {
+        lv_obj_clean(content_container);
     }
+}

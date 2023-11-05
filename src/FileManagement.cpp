@@ -17,6 +17,8 @@ std::vector<lv_obj_t*> x_axis_labels;
 std::vector<Recipe> recipes;
 std::vector<lv_obj_t*> temp_labels;
 
+bool is_update_timer_active = false;
+
 int selectedRecipeIndex = 0;
 
 void updateChartBasedOnRecipe(const Recipe& recipe);
@@ -96,23 +98,24 @@ void fileManagementFunction(lv_event_t *e) {
     }
 
     // Stoppen und Löschen des alten Timers, falls vorhanden
-    if (update_timer) {
-        Serial.println("Lösche vorhandenen Timer"); // Debugging-Ausgabe
+    if (update_timer && is_update_timer_active) {
+        Serial.println("Lösche vorhandenen Timer");
         lv_timer_del(update_timer);
-        update_timer = nullptr; // Setze den Zeiger auf nullptr nach dem Löschen
+        update_timer = nullptr;
+        is_update_timer_active = false; // Setze den Status auf inaktiv
     } else {
-        Serial.println("Kein Timer zu löschen"); // Debugging-Ausgabe
+        Serial.println("Kein Timer zu löschen oder Timer bereits inaktiv");
     }
 
     // Löschen des alten Charts und seiner Kinder, falls vorhanden
-    if (chart) {
-        Serial.println("Lösche vorhandenes Chart und seine Kinder"); // Debugging-Ausgabe
-        lv_obj_clean(chart); // Entfernt alle Kinder des Charts
-        lv_obj_del(chart);
-        chart = nullptr; // Setze den Zeiger auf nullptr nach dem Löschen
-    } else {
-        Serial.println("Kein Chart zu löschen"); // Debugging-Ausgabe
-    }
+    if (chart && lv_obj_is_valid(chart)) {
+    Serial.println("Lösche vorhandenes Chart und seine Kinder");
+    lv_obj_clean(chart); // Entfernt alle Kinder des Charts
+    lv_obj_del(chart);
+    chart = nullptr; // Setze den Zeiger auf nullptr nach dem Löschen
+} else {
+    Serial.println("Kein Chart zu löschen oder Chart ist ungültig");
+}
 
     // Bereinigen Sie den Inhalt des Containers, bevor Sie neue Elemente hinzufügen
     clearContentArea();
@@ -127,9 +130,14 @@ void fileManagementFunction(lv_event_t *e) {
 
     lv_obj_set_size(chart, TFT_WIDTH - 20, 150);
     lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 0, -20);
+    if (lv_obj_check_type(chart, &lv_chart_class)) {
+    Serial.println("Chart-Objekt ist gültig, setze Bereich"); // Debugging-Ausgabe
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, MAX_DAYS);
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, -24, 20);
-    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+} else {
+    Serial.println("Chart-Objekt ist NICHT gültig, Bereich wird NICHT gesetzt"); // Debugging-Ausgabe
+    return;
+}lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
     ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
     if (!ser) {
         Serial.println("Failed to add series to chart");
@@ -147,14 +155,14 @@ void fileManagementFunction(lv_event_t *e) {
     if (!recipes.empty()) {
         Serial.println("Initialisiere Chart mit erstem Rezept"); // Debugging-Ausgabe
         update_timer = lv_timer_create(updateChartTimerCallback, 100, &recipes[selectedRecipeIndex]);
-        if (!update_timer) {
-            Serial.println("Timer konnte nicht erstellt werden"); // Debugging-Ausgabe
-        } else {
-            Serial.println("Timer erstellt und bereit"); // Debugging-Ausgabe
-            lv_timer_ready(update_timer);
-        }
-    } else {
-        Serial.println("Rezeptliste ist leer, kein Chart wird initialisiert"); // Debugging-Ausgabe
-    }
+        if (update_timer) {
+    Serial.println("Timer erstellt und bereit");
+    is_update_timer_active = true; // Setze den Status auf aktiv
+} else {
+    Serial.println("Timer konnte nicht erstellt werden");
+
+    } 
+
+}
 }
 
