@@ -127,6 +127,5 @@ void loop() {
         DateTime now = rtc.now();
         
         // Hier können Sie die aktuelle Zeit und das Datum verwenden
-    Serial.println(now.timestamp(DateTime::TIMESTAMP_FULL));
     }
 }

@@ -93,8 +93,6 @@ String getDateTimeStr() {
            now.day(), now.month(), now.year(), now.hour(), now.minute());
 
   // Debug-Ausgabe auf der Konsole
-  Serial.print("RTC DateTime String: ");
-  Serial.println(dateTimeStr);
 
   return String(dateTimeStr);
 }
