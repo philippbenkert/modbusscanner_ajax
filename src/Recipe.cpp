@@ -3,11 +3,10 @@
 #include "SDCardHandler.h" // If needed for file operations
 #include "FileManagement.h"
 
-
 extern const int Y_AXIS_PADDING = 2;
 extern const int X_LABEL_OFFSET = 35;
-extern const int Y_LABEL_OFFSET = 130;
-extern const int TEMP_LABEL_Y_OFFSET = 100;
+extern const int Y_LABEL_OFFSET = 0;
+extern const int TEMP_LABEL_Y_OFFSET = 0;
 extern std::vector<lv_obj_t*> x_axis_labels;
 extern std::vector<Recipe> recipes;
 extern std::vector<lv_obj_t*> temp_labels;
@@ -58,8 +57,15 @@ void readRecipesFromFile() {
 
 // Funktion zum Aktualisieren des Charts basierend auf einem Rezept
 void updateChartBasedOnRecipe(const Recipe& recipe) {
-    if (!chart || !ser) {
-        Serial.println("Chart oder Serie ist nullptr"); // Debugging-Ausgabe
+        Serial.println("updateChartBasedOnRecipe aufgerufen");
+
+    if (!lv_obj_is_valid(chart)) {
+        Serial.println("Chart ist ungültig oder nullptr");
+        return;
+    }
+
+    if (!ser) {
+        Serial.println("Serie ist nullptr");
         return;
     }
 
@@ -78,10 +84,13 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     updateChartLabels(recipe, chart); // Korrigierter Aufruf mit drei Parametern
 }
 
-
-// Update the chart labels to be children of the chart container
 // Update the chart labels to be children of the chart container
 void updateChartLabels(const Recipe& recipe, lv_obj_t* chart) {
+    if (!lv_obj_is_valid(chart)) {
+        Serial.println("Chart object is invalid");
+        return; // Exit the function if the chart is not valid
+    }
+
     clearLabels(x_axis_labels);
     clearLabels(temp_labels);
 
@@ -90,33 +99,33 @@ void updateChartLabels(const Recipe& recipe, lv_obj_t* chart) {
     const lv_coord_t chart_x = lv_obj_get_x(chart);
     const lv_coord_t chart_y = lv_obj_get_y(chart);
 
+    int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
+    int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
+    float y_scale = (float)chart_height / (max_temp - min_temp);
+    // Helper function to create and position labels
+    auto createAndPositionLabel = [&](size_t index, bool isTempLabel) {
+        char buf[10];
+        int value = isTempLabel ? recipe.temperatures[index] : static_cast<int>(index);
+        snprintf(buf, sizeof(buf), "%d", value);
+        int x_offset = chart_x + (index * chart_width) / recipe.temperatures.size() + X_LABEL_OFFSET;
+        int y_offset = isTempLabel ? (chart_y + chart_height - ((recipe.temperatures[index] - min_temp) * y_scale) + TEMP_LABEL_Y_OFFSET)
+                                   : (chart_y + chart_height + Y_LABEL_OFFSET);
+        auto& labelVector = isTempLabel ? temp_labels : x_axis_labels;
+        labelVector.push_back(createLabel(chart, buf, x_offset, y_offset));
+    };
+
     // Indices for significant points (start, middle, end)
     std::vector<size_t> significantPoints = {0, recipe.temperatures.size() / 2, recipe.temperatures.size() - 1};
 
     for (auto i : significantPoints) {
-        char buf[10];
-        snprintf(buf, sizeof(buf), "%zu", i);
-        int x_offset = chart_x + (i * chart_width) / recipe.temperatures.size() + X_LABEL_OFFSET;
-        int y_offset = chart_y + chart_height + Y_LABEL_OFFSET;
-        x_axis_labels.push_back(createLabel(chart, buf, x_offset, y_offset));
-    }
-
-    // Create temperature labels
-    int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
-    int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
-    float y_scale = (float)chart_height / (max_temp - min_temp);
-    for (auto i : significantPoints) {
-        char buf[10];
-        snprintf(buf, sizeof(buf), "%d", recipe.temperatures[i]);
-        int x_pos = chart_x + (i * chart_width) / recipe.temperatures.size() + X_LABEL_OFFSET;
-        int y_pos = chart_y + chart_height - ((recipe.temperatures[i] - min_temp) * y_scale) + TEMP_LABEL_Y_OFFSET;
-        temp_labels.push_back(createLabel(chart, buf, x_pos, y_pos));
+        createAndPositionLabel(i, false); // X-axis labels
+        createAndPositionLabel(i, true);  // Temperature labels
     }
 }
 
 void clearLabels(std::vector<lv_obj_t*>& labels) {
     for (auto& label : labels) {
-        if (label) {
+        if (label && lv_obj_is_valid(label)) {
             lv_obj_del(label);
             label = nullptr; // Set the pointer to nullptr after deletion
         }
