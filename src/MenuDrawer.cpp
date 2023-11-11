@@ -6,12 +6,12 @@
 #include <cstdint>
 #include "RTCControl.h"
 #include "StatusDisplay.h"
+#include "FileManagement.h"
 
 const int iconSize = 60;
 const int screenPadding = 10;
 const int numItems = 4;
 lv_obj_t *content_container;
-
 // Externe Verweise
 extern SDCardHandler sdCard;
 WebSocketHandler webSocketHandler;
@@ -19,6 +19,7 @@ String iconPaths[] = {"/wifi.png", "/modbus.png", "/folder.png", "/scan.png"};
 
 // Implementierung von drawMenu
 std::vector<uint8_t*> imageBuffers;
+std::vector<lv_timer_t*> active_timers;
 
 MenuItem menuItems[] = {
     {"/wifi.png", wlanSettingsFunction},
@@ -28,6 +29,14 @@ MenuItem menuItems[] = {
 };
 
 lv_obj_t* iconCache[numItems] = { NULL };
+
+// Funktion zum Löschen aller Timer
+void clear_all_timers() {
+    for (auto timer : active_timers) {
+        lv_timer_del(timer);
+    }
+    active_timers.clear();
+}
 
 void drawMenu() {
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
@@ -78,6 +87,23 @@ void setupContentContainer() {
 
     void clearContentArea() {
     if (content_container && lv_obj_is_valid(content_container)) {
+        lv_obj_t * child;
+        uint32_t i = 0;
+
+        clear_all_timers();
+
+        while ((child = lv_obj_get_child(content_container, i)) != NULL) {
+
+
+            // Entferne alle Event-Callbacks, die dem Kind zugeordnet sind
+            lv_obj_remove_event_cb(child, NULL);
+
+            // Gehe zum nächsten Kind
+            i++;
+        }
+
+        // Jetzt, da alle Timer und Callbacks entfernt wurden, bereinige den content_container
         lv_obj_clean(content_container);
+        dropdown_exists=false;
     }
 }

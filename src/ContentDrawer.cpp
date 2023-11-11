@@ -5,8 +5,7 @@
 
 extern WebSocketHandler webSocketHandler;
 extern bool loadCredentials(String& ssid, String& password);
-lv_obj_t* chart = nullptr; // or some initial value
-lv_chart_series_t* ser = nullptr; // or some initial value
+
 
 void drawContent(String content) {
     lv_obj_t *label = lv_label_create(content_container);

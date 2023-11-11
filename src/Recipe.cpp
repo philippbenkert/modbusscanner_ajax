@@ -10,6 +10,8 @@ extern const int TEMP_LABEL_Y_OFFSET = 0;
 extern std::vector<lv_obj_t*> x_axis_labels;
 extern std::vector<Recipe> recipes;
 extern std::vector<lv_obj_t*> temp_labels;
+extern bool pendingUpdate;
+
 // Implementations of readRecipesFromFile, updateChartBasedOnRecipe, updateChartLabels, and clearLabels
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
@@ -57,32 +59,48 @@ void readRecipesFromFile() {
 
 // Funktion zum Aktualisieren des Charts basierend auf einem Rezept
 void updateChartBasedOnRecipe(const Recipe& recipe) {
-        Serial.println("updateChartBasedOnRecipe aufgerufen");
-
-    if (!lv_obj_is_valid(chart)) {
-        Serial.println("Chart ist ungültig oder nullptr");
+    // Überprüfe, ob chart und ser gültig sind, bevor du fortfährst.
+    if (!chart || !lv_obj_is_valid(chart)) {
+        Serial.println("Chart ist ungültig");
         return;
     }
 
+    // Ensure the series is valid
     if (!ser) {
-        Serial.println("Serie ist nullptr");
-        return;
+        ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+        if (!ser) {
+            Serial.println("Serie konnte nicht hinzugefügt werden");
+            return;
+        }
     }
 
+    // Set the data range for the x-axis and y-axis
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_X, 0, recipe.temperatures.size());
     int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
     int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
-    lv_chart_remove_series(chart, ser);
-    ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    
+    // Set the number of points that the chart will hold
     lv_chart_set_point_count(chart, recipe.temperatures.size());
 
-    // Füge die Temperaturwerte der Serie hinzu
+    // Clear existing data points in the series
+    lv_chart_set_all_value(chart, ser, LV_CHART_POINT_NONE);
+
+    // Add new data points
     for (size_t i = 0; i < recipe.temperatures.size(); i++) {
         lv_chart_set_next_value(chart, ser, recipe.temperatures[i]);
     }
-    updateChartLabels(recipe, chart); // Korrigierter Aufruf mit drei Parametern
+
+    // Refresh the chart
+    lv_chart_refresh(chart);
+
+    // Update chart labels
+    updateChartLabels(recipe, chart);
+    pendingUpdate = false;
+
 }
+
+
 
 // Update the chart labels to be children of the chart container
 void updateChartLabels(const Recipe& recipe, lv_obj_t* chart) {
@@ -112,6 +130,7 @@ void updateChartLabels(const Recipe& recipe, lv_obj_t* chart) {
                                    : (chart_y + chart_height + Y_LABEL_OFFSET);
         auto& labelVector = isTempLabel ? temp_labels : x_axis_labels;
         labelVector.push_back(createLabel(chart, buf, x_offset, y_offset));
+        
     };
 
     // Indices for significant points (start, middle, end)
