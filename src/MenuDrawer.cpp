@@ -14,6 +14,8 @@ const int iconSize = 60;
 const int screenPadding = 10;
 const int numItems = 4;
 lv_obj_t *content_container;
+lv_obj_t* menuButtons[numItems]; // Array zum Speichern der Menü-Buttons
+
 // Externe Verweise
 extern SDCardHandler sdCard;
 WebSocketHandler webSocketHandler;
@@ -42,11 +44,10 @@ void clear_all_timers() {
 
 void updateButtonStyles() {
     for (int i = 0; i < numItems; i++) {
-        lv_obj_t* btn = lv_obj_get_child(lv_scr_act(), i); // Erhalten Sie den Button an der Position i
         if (i == activeButtonIndex) {
-            lv_obj_set_style_bg_color(btn, lv_color_hex(0xFFD700), 0); // Goldfarbe für aktiven Button
+            lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0xFFD700), 0); // Goldfarbe für aktiven Button
         } else {
-            lv_obj_set_style_bg_color(btn, lv_color_hex(0xFFFFFF), 0); // Weiß für inaktive Buttons
+            lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0x4A89DC), 0); 
         }
     }
 }
@@ -54,21 +55,24 @@ void updateButtonStyles() {
 void drawMenu() {
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
 
+    // Setzen des aktiven Index auf 0 beim Laden
+
     for (int i = 0; i < numItems; i++) {
         MenuItem item = menuItems[i];
 
         lv_obj_t * btn = lv_btn_create(lv_scr_act());
         lv_obj_set_pos(btn, screenPadding + i * (iconSize + spaceBetweenItems), screenPadding);
         lv_obj_set_size(btn, iconSize, iconSize);
+        menuButtons[i] = btn; // Speichern des Buttons im Array
 
-        if(!iconCache[i]) {
+        if (!iconCache[i]) {
             iconCache[i] = lv_img_create(btn);
             lv_img_set_src(iconCache[i], String("S:" + String(item.iconPath)).c_str());
         }
 
         lv_obj_align(iconCache[i], LV_ALIGN_CENTER, 0, 5);
 
-        lv_obj_add_event_cb(btn, [](lv_event_t * e){
+        lv_obj_add_event_cb(btn, [](lv_event_t * e) {
             int clickedIndex = (int)lv_event_get_user_data(e);
             if (clickedIndex != activeButtonIndex) {
                 activeButtonIndex = clickedIndex;
@@ -76,9 +80,17 @@ void drawMenu() {
 
                 // Rufen Sie die spezifische Funktion für den Button auf
                 menuItems[clickedIndex].action(e);
+
             }
         }, LV_EVENT_CLICKED, (void*)i);
     }
+
+    // Aktualisieren der Button-Styles
+    updateButtonStyles();
+        // Auslösen der Aktion des ersten Buttons
+    wlanSettingsFunction; // NULL oder ein passender Event-Parameter
+    activeButtonIndex = 0;
+
 }
 
 void setupContentContainer() {

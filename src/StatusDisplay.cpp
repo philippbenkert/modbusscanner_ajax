@@ -67,7 +67,7 @@ void update_datetime_label(lv_timer_t * timer) {
 
     // Aktualisieren Sie das Label mit der neuen Zeit
     lv_label_set_text(label, dateTimeString.c_str());
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0); // Realign, falls die Größe des Textes sich ändert
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, -15); // Realign, falls die Größe des Textes sich ändert
 }
 
 void drawStatus() {
@@ -92,29 +92,29 @@ void drawStatus() {
     lv_obj_set_style_bg_color(modbusSymbol, modbusStatus == "Verbunden" ? lv_color_hex(0x00FF00) : lv_color_hex(0xFF0000), 0);
     lv_obj_set_style_bg_opa(modbusSymbol, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(modbusSymbol, 8, 0); // für einen Kreis
-    lv_obj_align(modbusSymbol, LV_ALIGN_CENTER, -100, 15); // 20 Pixel vom linken Rand, 20 Pixel oberhalb der Mitte
+    lv_obj_align(modbusSymbol, LV_ALIGN_LEFT_MID, 5, 15); // 20 Pixel vom linken Rand, 20 Pixel oberhalb der Mitte
 
     lv_obj_t * modbusLabel = lv_label_create(statusContainer);
     lv_label_set_text(modbusLabel, "Modbus");
-    lv_obj_align(modbusLabel, LV_ALIGN_CENTER, -70, 15);
+    lv_obj_align(modbusLabel, LV_ALIGN_LEFT_MID, 25, 15);
 
     // Label für den freien Speicherplatz (ohne separates Symbol)
     lv_obj_t * spaceLabel = lv_label_create(statusContainer);
     lv_label_set_text(spaceLabel, freeSpace.c_str());
-    lv_obj_align(spaceLabel, LV_ALIGN_CENTER, +100, 15);
+    lv_obj_align(spaceLabel, LV_ALIGN_RIGHT_MID, -5, 15);
 
     // Label für Datum und Uhrzeit
     dateTimeLabel = lv_label_create(statusContainer);
     String dateTimeString = getDateTimeStr();
     lv_label_set_text(dateTimeLabel, dateTimeString.c_str());
-    lv_obj_align(dateTimeLabel, LV_ALIGN_CENTER, 0, 20); // Anpassung der Y-Position
+    lv_obj_align(dateTimeLabel, LV_ALIGN_TOP_MID, 0, 25); // Anpassung der Y-Position
 
     // Einstellschlüssel-Symbol als Button ohne Hintergrund (transparent)
     lv_obj_t * settingsBtn = lv_btn_create(statusContainer);
     // Entfernen des Hintergrundstils vom Button, um ihn transparent zu machen
     lv_obj_remove_style_all(settingsBtn); // Entfernen aller Stile, die vom Container geerbt wurden
-    lv_obj_set_size(settingsBtn, 30, 30);
-    lv_obj_align(settingsBtn, LV_ALIGN_CENTER, 60, -20); // Rechts neben dem Datum/Uhrzeit-Label   
+    lv_obj_set_size(settingsBtn, 25, 25);
+    lv_obj_align(settingsBtn, LV_ALIGN_CENTER, 70, -15); // Rechts neben dem Datum/Uhrzeit-Label   
     // Hinzufügen des Einstellungssymbols zum Button
     lv_obj_t * settingsSymbol = lv_label_create(settingsBtn);
     lv_label_set_text(settingsSymbol, LV_SYMBOL_SETTINGS);
@@ -146,6 +146,11 @@ void dst_switch_event_cb(lv_event_t * e) {
     lv_obj_set_size(datetimeContainer, LV_PCT(100), LV_PCT(100));
     lv_obj_center(datetimeContainer);
 
+    // Erstellen und positionieren Sie die Überschrift
+    lv_obj_t * label = lv_label_create(datetimeContainer);
+    lv_label_set_text(label, "Datum und Uhrzeit einstellen");
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 20);  // Positionieren Sie die Überschrift oben im Container
+
     // Erstellen Sie Roller für Tag, Monat, Jahr, Stunde und Minute
     dayRoller = lv_roller_create(datetimeContainer);
     lv_roller_set_options(dayRoller, "01\n02\n03\n04\n05\n06\n07\n08\n09\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31", LV_ROLLER_MODE_INFINITE);
@@ -171,13 +176,17 @@ void dst_switch_event_cb(lv_event_t * e) {
     setDateTimeRollersToCurrent(); // Pass the 'now' as argument
 
     lv_obj_t *dstSwitch = lv_switch_create(datetimeContainer);
-    lv_obj_align(dstSwitch, LV_ALIGN_CENTER, 0, 50);
+    lv_obj_align(dstSwitch, LV_ALIGN_CENTER, 0, 70);
     lv_obj_add_event_cb(dstSwitch, dst_switch_event_cb, LV_EVENT_CLICKED, NULL);
     if (dstEnabled) {
         lv_obj_add_state(dstSwitch, LV_STATE_CHECKED); // Turn the switch "on"
     } else {
         lv_obj_clear_state(dstSwitch, LV_STATE_CHECKED); // Turn the switch "off"
     }
+    // Erstellen und positionieren Sie die Überschrift
+    lv_obj_t * label1 = lv_label_create(datetimeContainer);
+    lv_label_set_text(label1, "Sommer-/Winterumschaltung");
+    lv_obj_align(label1, LV_ALIGN_CENTER, 0, 50);  // Positionieren Sie die Überschrift oben im Container
 
     // Hinzufügen der Bestätigungs- und Abbrechen-Schaltflächen
     lv_obj_t * btnm = lv_btnmatrix_create(datetimeContainer);

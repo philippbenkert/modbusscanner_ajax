@@ -1,5 +1,5 @@
 {
-    "C_Cpp.default.compilerPath": "C:/Users/Sorbino/.platformio/packages/toolchain-xtensa-esp32s3/bin/xtensa-esp32s3-elf-gcc.exe",
+    "C_Cpp.default.compilerPath": "C:/Users/Sorbino/.platformio/packages/toolchain-xtensa-esp32s3@8.4.0+2021r2-patch5/bin/xtensa-esp32s3-elf-gcc.exe",
     "cmake.sourceDirectory": "C:/Users/Sorbino/Documents/PlatformIO/Projects/Modbusscanner/.pio/libdeps/esp32s3box/AsyncTCP",
     "files.associations": {
         "array": "cpp",

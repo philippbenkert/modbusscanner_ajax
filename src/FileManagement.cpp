@@ -12,7 +12,10 @@ std::vector<Recipe> recipes;
 lv_obj_t* chart = nullptr;
 lv_chart_series_t* ser = nullptr;
 lv_obj_t* recipe_dropdown = nullptr;
-const uint32_t debounce_period_ms = 500;
+lv_obj_t* line_chart = nullptr;
+lv_chart_series_t* zero_line_ser = nullptr;
+
+
 bool dropdown_exists = false;
 int selectedRecipeIndex = 0;
 
@@ -51,7 +54,7 @@ void createSaveButton(lv_obj_t * parent) {
     if (!parent || !lv_obj_is_valid(parent)) return;
     lv_obj_t* save_btn = lv_btn_create(parent);
     lv_obj_set_size(save_btn, 100, 30); // Größe des Buttons anpassen
-    lv_obj_align(save_btn, LV_ALIGN_OUT_BOTTOM_MID, 125, 12); // Position unterhalb des Dropdown-Menüs
+    lv_obj_align(save_btn, LV_ALIGN_OUT_BOTTOM_MID, 150, 12); // Position unterhalb des Dropdown-Menüs
     lv_obj_t* label = lv_label_create(save_btn);
     lv_label_set_text(label, "Speichern");
     lv_obj_add_event_cb(save_btn, [](lv_event_t * e) {
@@ -62,7 +65,6 @@ void createSaveButton(lv_obj_t * parent) {
 
 void recipe_dropdown_event_handler(lv_event_t * e) {
     static uint32_t lastUpdateTime = 0;
-    if (isDebounceActive(lastUpdateTime, debounce_period_ms)) return;
     lv_obj_t* dropdown = lv_event_get_target(e);
     if (!dropdown || !lv_obj_is_valid(dropdown)) return;
     int newSelectedIndex = lv_dropdown_get_selected(dropdown);
@@ -83,6 +85,7 @@ void createRecipeDropdown(lv_obj_t * parent) {
             lv_dropdown_add_option(recipe_dropdown, recipes[i].name.c_str(), i);
         }
         lv_dropdown_set_selected(recipe_dropdown, selectedRecipeIndex);
+        lv_obj_set_size(recipe_dropdown, 150, 30); // Größe des Buttons anpassen
         lv_obj_align(recipe_dropdown, LV_ALIGN_TOP_MID, -70, 10);
         lv_obj_add_event_cb(recipe_dropdown, recipe_dropdown_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
         dropdown_exists = true;
@@ -102,7 +105,5 @@ void fileManagementFunction(lv_event_t *e) {
     createSaveButton(content_container); // Button hinzufügen
     if (!recipes.empty()) {
         updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
-        updateChartLabels(recipes[selectedRecipeIndex], chart); // Direkter Aufruf nach dem Update des Charts
-
     }
 }

@@ -11,6 +11,8 @@ extern std::vector<Recipe> recipes;
 extern int selectedRecipeIndex;
 extern lv_obj_t* chart;
 extern lv_chart_series_t* ser;
+extern lv_obj_t* line_chart;
+extern lv_chart_series_t* zero_line_ser;
 
 void fileManagementFunction(lv_event_t *e);
 void readRecipesFromFile();
