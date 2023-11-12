@@ -42,10 +42,20 @@ void clear_all_timers() {
     active_timers.clear();
 }
 
+void setScreenBackgroundColor(lv_color_t color) {
+    static lv_style_t style_bg; // Stellen Sie sicher, dass der Stil statisch oder global ist
+    lv_style_init(&style_bg);
+    lv_style_set_bg_color(&style_bg, color); 
+
+    lv_obj_add_style(lv_scr_act(), &style_bg, 0);
+}
+
+
 void updateButtonStyles() {
     for (int i = 0; i < numItems; i++) {
         if (i == activeButtonIndex) {
             lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0xFFD700), 0); // Goldfarbe für aktiven Button
+            lv_obj_set_style_shadow_opa(menuButtons[i], LV_OPA_TRANSP, 0); // Schatten entfernen für aktiven Button
         } else {
             lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0x4A89DC), 0); 
         }
@@ -53,6 +63,8 @@ void updateButtonStyles() {
 }
 
 void drawMenu() {
+    setScreenBackgroundColor(lv_color_make(255, 215, 0)); // Gelber Hintergrund
+
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
 
     // Setzen des aktiven Index auf 0 beim Laden
