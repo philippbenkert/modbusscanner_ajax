@@ -92,31 +92,29 @@ void drawStatus() {
     lv_obj_set_style_bg_color(modbusSymbol, modbusStatus == "Verbunden" ? lv_color_hex(0x00FF00) : lv_color_hex(0xFF0000), 0);
     lv_obj_set_style_bg_opa(modbusSymbol, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(modbusSymbol, 8, 0); // für einen Kreis
-    lv_obj_align(modbusSymbol, LV_ALIGN_LEFT_MID, 20, -20); // 20 Pixel vom linken Rand, 20 Pixel oberhalb der Mitte
+    lv_obj_align(modbusSymbol, LV_ALIGN_CENTER, -100, 15); // 20 Pixel vom linken Rand, 20 Pixel oberhalb der Mitte
 
     lv_obj_t * modbusLabel = lv_label_create(statusContainer);
     lv_label_set_text(modbusLabel, "Modbus");
-    lv_obj_align_to(modbusLabel, modbusSymbol, LV_ALIGN_OUT_RIGHT_MID, 5, 0);
+    lv_obj_align(modbusLabel, LV_ALIGN_CENTER, -70, 15);
 
     // Label für den freien Speicherplatz (ohne separates Symbol)
     lv_obj_t * spaceLabel = lv_label_create(statusContainer);
     lv_label_set_text(spaceLabel, freeSpace.c_str());
-    lv_obj_align(spaceLabel, LV_ALIGN_RIGHT_MID, -5, -20);
+    lv_obj_align(spaceLabel, LV_ALIGN_CENTER, +100, 15);
 
     // Label für Datum und Uhrzeit
     dateTimeLabel = lv_label_create(statusContainer);
     String dateTimeString = getDateTimeStr();
     lv_label_set_text(dateTimeLabel, dateTimeString.c_str());
-    lv_obj_align(dateTimeLabel, LV_ALIGN_CENTER, 0, -15); // Anpassung der Y-Position
+    lv_obj_align(dateTimeLabel, LV_ALIGN_CENTER, 0, 20); // Anpassung der Y-Position
 
     // Einstellschlüssel-Symbol als Button ohne Hintergrund (transparent)
     lv_obj_t * settingsBtn = lv_btn_create(statusContainer);
-    lv_obj_set_size(settingsBtn, 40, 40);
-    lv_obj_align_to(settingsBtn, dateTimeLabel, LV_ALIGN_OUT_RIGHT_MID, 10, 0); // Rechts neben dem Datum/Uhrzeit-Label
-
     // Entfernen des Hintergrundstils vom Button, um ihn transparent zu machen
     lv_obj_remove_style_all(settingsBtn); // Entfernen aller Stile, die vom Container geerbt wurden
-
+    lv_obj_set_size(settingsBtn, 30, 30);
+    lv_obj_align(settingsBtn, LV_ALIGN_CENTER, 60, -20); // Rechts neben dem Datum/Uhrzeit-Label   
     // Hinzufügen des Einstellungssymbols zum Button
     lv_obj_t * settingsSymbol = lv_label_create(settingsBtn);
     lv_label_set_text(settingsSymbol, LV_SYMBOL_SETTINGS);

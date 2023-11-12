@@ -178,6 +178,7 @@ void LGFX::lvgl_init()
     lv_png_init();
     setupContentContainer();
     drawMenu();
+    updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
     drawStatus();
 
 }

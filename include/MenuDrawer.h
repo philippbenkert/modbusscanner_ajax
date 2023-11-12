@@ -15,6 +15,8 @@ struct MenuItem {
 
 // Funktionsdeklarationen
 void drawMenu();
+void updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
+
 //void drawContent(String content);
 void drawStatus();
 void clearContentArea();

@@ -32,6 +32,7 @@ public:
 
 // Deklaration der globalen Funktionen
 void checkTouch();
+void updateButtonStyles();
 //void wlanSettingsFunction(lv_event_t * event);
 //void modbusSettingsFunction(lv_event_t * event);
 //void fileManagementFunction(lv_event_t * event);
