@@ -14,6 +14,8 @@
 #include <Wire.h>
 #include "RTCControl.h"
 #include "DateTimeHandler.h"
+#include "OTAUpdates.h"
+
 
 // Konstanten
 //#define BOARD_POWER_ON              4
@@ -25,6 +27,7 @@ RTC_DS3231 rtc;
 LGFX display;
 SDCardHandler sdCard;
 WebServer webServer;
+OTAUpdates otaUpdates;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
 
@@ -105,6 +108,8 @@ void setup() {
     modbusScanner.begin();
     display.init(); 
     display.lvgl_init();
+    otaUpdates.begin("Ihr_WLAN_SSID", "Ihr_WLAN_Passwort");
+
     }
 
 void loop() {
@@ -128,4 +133,5 @@ void loop() {
         
         // Hier können Sie die aktuelle Zeit und das Datum verwenden
     }
+    otaUpdates.handle();
 }

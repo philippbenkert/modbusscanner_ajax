@@ -20,5 +20,5 @@ void recipe_dropdown_event_handler(lv_event_t* e);
 void updateChartBasedOnRecipe(const Recipe& recipe);
 void clearLabels(std::vector<lv_obj_t*>& labels);
 void createRecipeDropdown(lv_obj_t* parent);
-
+void createSaveButton(lv_obj_t * parent);
 #endif

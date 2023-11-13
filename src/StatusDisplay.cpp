@@ -77,10 +77,11 @@ void drawStatus() {
 
     // Hauptcontainer, der nun beide Zeilen enthält
     lv_obj_t * statusContainer = lv_obj_create(lv_scr_act());
-    lv_obj_set_width(statusContainer, TFT_WIDTH-10);
+    lv_obj_set_style_border_width(statusContainer, 0, 0);
+    lv_obj_set_width(statusContainer, TFT_WIDTH-20);
     lv_obj_set_height(statusContainer, 65); // Platz für beide Zeilen
-    lv_obj_align(statusContainer, LV_ALIGN_BOTTOM_MID, 0, -5);
-    lv_obj_set_style_bg_color(statusContainer, lv_color_hex(0x4A89DC), 0);
+    lv_obj_align(statusContainer, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(statusContainer, lv_color_hex(0xFF8C00), 0);
     lv_obj_set_style_bg_opa(statusContainer, LV_OPA_COVER, 0);
 
     // Deaktivieren des Scrollbalkens für den Hauptcontainer

@@ -54,16 +54,16 @@ void setScreenBackgroundColor(lv_color_t color) {
 void updateButtonStyles() {
     for (int i = 0; i < numItems; i++) {
         if (i == activeButtonIndex) {
-            lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0xFFD700), 0); // Goldfarbe für aktiven Button
+            lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0x00AEEF), 0); // Goldfarbe für aktiven Button
             lv_obj_set_style_shadow_opa(menuButtons[i], LV_OPA_TRANSP, 0); // Schatten entfernen für aktiven Button
         } else {
-            lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0x4A89DC), 0); 
+            lv_obj_set_style_bg_color(menuButtons[i], lv_color_hex(0xFF8C00), 0); 
         }
     }
 }
 
 void drawMenu() {
-    setScreenBackgroundColor(lv_color_make(255, 215, 0)); // Gelber Hintergrund
+    setScreenBackgroundColor(lv_color_make(0, 174, 239)); // Gelber Hintergrund
 
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
 
@@ -117,12 +117,12 @@ void setupContentContainer() {
     int x_pos = 10;  // Beginnen Sie am linken Rand
     int y_pos = 110; // Direkt unterhalb des Menüs
     int width = TFT_WIDTH - 20;  // Breite des Bildschirms minus 10 Pixel Abstand auf jeder Seite
-    int height = TFT_HEIGHT - 180; // Der verbleibende Platz auf dem Bildschirm nach dem Menü
+    int height = TFT_HEIGHT - 190; // Der verbleibende Platz auf dem Bildschirm nach dem Menü
     lv_obj_set_pos(content_container, x_pos, y_pos);
     lv_obj_set_size(content_container, width, height);
-    lv_obj_set_style_bg_color(content_container, lv_color_hex(0xE0E0E0), 0); // Ein heller Hintergrund
-    lv_obj_set_style_border_width(content_container, 2, 0);
-    lv_obj_set_style_border_color(content_container, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(content_container, lv_color_hex(0xFF8C00), 0); // Ein heller Hintergrund
+    lv_obj_set_style_border_width(content_container, 0, 0);
+    //lv_obj_set_style_border_color(content_container, lv_color_hex(0x000000), 0);
     }
 
     void clearContentArea() {

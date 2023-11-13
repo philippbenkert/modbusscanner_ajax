@@ -19,15 +19,6 @@ lv_chart_series_t* zero_line_ser = nullptr;
 bool dropdown_exists = false;
 int selectedRecipeIndex = 0;
 
-bool isDebounceActive(uint32_t& lastUpdateTime, uint32_t debouncePeriod) {
-    uint32_t currentTime = lv_tick_get();
-    if (currentTime - lastUpdateTime < debouncePeriod) {
-        return true;
-    }
-    lastUpdateTime = currentTime;
-    return false;
-}
-
 void showSaveConfirmationPopup() {
     lv_obj_t* mbox = lv_msgbox_create(lv_scr_act(), "Gespeichert", "Das Rezept wurde erfolgreich gespeichert!", nullptr, true);
     lv_obj_align(mbox, LV_ALIGN_CENTER, 0, 0);
@@ -64,10 +55,9 @@ void createSaveButton(lv_obj_t * parent) {
 }
 
 void recipe_dropdown_event_handler(lv_event_t * e) {
-    static uint32_t lastUpdateTime = 0;
-    lv_obj_t* dropdown = lv_event_get_target(e);
-    if (!dropdown || !lv_obj_is_valid(dropdown)) return;
-    int newSelectedIndex = lv_dropdown_get_selected(dropdown);
+    recipe_dropdown = lv_event_get_target(e);
+    if (!recipe_dropdown || !lv_obj_is_valid(recipe_dropdown)) return;
+    int newSelectedIndex = lv_dropdown_get_selected(recipe_dropdown);
     if (newSelectedIndex != selectedRecipeIndex && !recipes.empty()) {
         selectedRecipeIndex = newSelectedIndex;
         if (chart && lv_obj_is_valid(chart)) {
@@ -100,9 +90,9 @@ void fileManagementFunction(lv_event_t *e) {
     if (storedIndex >= 0 && storedIndex < recipes.size()) {
         selectedRecipeIndex = storedIndex;
     }
-    clearContentArea();
-    createRecipeDropdown(content_container);
-    createSaveButton(content_container); // Button hinzufügen
+    //clearContentArea();
+    //createRecipeDropdown(content_container);
+    //createSaveButton(content_container); // Button hinzufügen
     if (!recipes.empty()) {
         updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
     }

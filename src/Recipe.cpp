@@ -25,42 +25,31 @@ void readRecipesFromFile() {
     if (!file) {
         return;
     }
-
     String line;
     line.reserve(256); // Reserviere genug Speicher für die Zeile, um häufige Allokationen zu vermeiden
-
     file.readStringUntil('\n'); // Überspringe die Kopfzeile
-
     while (file.available()) {
         line = file.readStringUntil('\n');
         line.trim();
-
         if (line.length() == 0) {
             continue; // Überspringe leere Zeilen
         }
-
         Recipe recipe;
         int start = 0;
         int end = line.indexOf(';');
-
         recipe.name = line.substring(start, end); // Extrahiere den Rezeptnamen
-
         start = end + 1;
         while ((end = line.indexOf(';', start)) != -1) {
             recipe.temperatures.push_back(line.substring(start, end).toInt()); // Extrahiere und konvertiere die Temperatur
             start = end + 1;
         }
-
         if (start < line.length()) {
             recipe.temperatures.push_back(line.substring(start).toInt()); // Verarbeite das letzte Stück der Zeile
         }
-
         recipes.push_back(std::move(recipe)); // Verwende std::move, um Kopien zu vermeiden
     }
-
     file.close();
 }
-
 
 const Recipe& getCurrentRecipe() {
     uint16_t selected_id = lv_dropdown_get_selected(recipe_dropdown);
@@ -83,22 +72,15 @@ void updateCursorInfo(lv_obj_t* chart, const Recipe& recipe, uint16_t point_idx)
     lv_obj_clear_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN); // Zeige das Label an
 }
 
-
 void chart_touch_event_cb(lv_event_t* e) {
     chart = lv_event_get_target(e);
     if (!chart || !lv_obj_is_valid(chart)) {
         Serial.print("Chart nicht vorhanden!");
-
         return; // Beenden, wenn das Chart-Objekt ungültig ist
     }
-    Serial.print("Chart vorhanden!");
-
-    if (!cursor || !lv_obj_is_valid((lv_obj_t*)cursor)) {
-        Serial.print("cursor nicht vorhanden!");
+    if (!cursor) {
         return; // Beenden, wenn der Cursor ungültig ist
     }
-    Serial.print("cursor vorhanden!");
-   
     const Recipe& current_recipe = getCurrentRecipe(); // Verwenden Sie die neue Funktion
     uint32_t point_id = lv_chart_get_pressed_point(chart);
     if (point_id == LV_CHART_POINT_NONE) {
@@ -106,21 +88,26 @@ void chart_touch_event_cb(lv_event_t* e) {
     }
     lv_point_t p_out;
     lv_chart_get_point_pos_by_id(chart, ser, point_id, &p_out);
+    
+    if (point_id != LV_CHART_POINT_NONE) {
     lv_chart_set_cursor_point(chart, cursor, ser, point_id);
+    }    
     updateCursorInfo(chart, current_recipe, point_id);
-    Serial.print("Gedrückter Punkt ID: ");
-    Serial.println(point_id);
+    lv_chart_refresh(chart);
 }
 
 void clearCursor() {
-    if (cursor && lv_obj_is_valid((lv_obj_t*)cursor)) {
-        lv_obj_del((lv_obj_t*)cursor);
+    if (cursor) {
+        //lv_obj_del((lv_obj_t*)cursor);
         cursor = nullptr;
+        lv_chart_refresh(chart);
     }
 }
 
 void updateChartBasedOnRecipe(const Recipe& recipe) {
-    
+    clearContentArea();
+    createRecipeDropdown(content_container);
+    createSaveButton(content_container); // Button hinzufügen
     int X_MAX = recipe.temperatures.size(); // Maximale X-Position basierend auf der Anzahl der Temperaturen
     int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
     int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
@@ -136,54 +123,46 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         lv_obj_add_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN); // Verstecken, bis benötigt
         ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
         if (!ser) return;
-    }
-    if (chart) {
-        clearCursor(); // Löscht den Cursor, falls vorhanden
+    }   
+     // Löscht den Cursor, falls vorhanden
+    clearCursor();
+    if (!cursor) {
         cursor = lv_chart_add_cursor(chart, lv_palette_main(LV_PALETTE_BLUE), LV_DIR_VER);
-        // Überprüfen, ob der Cursor erfolgreich erstellt wurde
-        if (!cursor) {
-            Serial.print("Cursor-Erstellung fehlgeschlagen!");
+        if (cursor) {
         }
     }
-
-        if (!line_chart || !lv_obj_is_valid(line_chart)) {
-        // Erstellung des Hintergrunddiagramms
+    if (!line_chart || !lv_obj_is_valid(line_chart)) {
         line_chart = lv_chart_create(content_container);
         lv_obj_set_size(line_chart, TFT_WIDTH - 60, 170);
         lv_obj_align(line_chart, LV_ALIGN_BOTTOM_MID, 10, -5);
         lv_chart_set_type(line_chart, LV_CHART_TYPE_SCATTER);
-        // Setzen der Hintergrundfarbe auf transparent
         lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
         lv_obj_set_style_bg_opa(line_chart, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
         lv_obj_clear_flag(line_chart, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_set_style_shadow_opa(line_chart, LV_OPA_TRANSP, 0);
-        }
-    
-    // Setzen des Bereichs und der Daten für das Diagramm
+    }
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
     lv_chart_set_point_count(chart, recipe.temperatures.size());
-    // Erstellen Sie eine Serie für die Linie
     zero_line_ser = lv_chart_add_series(line_chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    // Setzen Sie zwei Punkte für die horizontale Linie
     lv_chart_set_value_by_id2(line_chart, zero_line_ser, 0, 0, 0); // X_MIN: Minimale X-Position
     lv_chart_set_value_by_id2(line_chart, zero_line_ser, 1, X_MAX, 0); // X_MAX: Maximale X-Position
     lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
     lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_X, 0, recipe.temperatures.size());
-    // Setzen der X-Achsen-Ticks
+    static lv_style_t style;
+    lv_style_init(&style);
+    // Setzen Sie die Textfarbe auf Weiß
+    lv_style_set_text_color(&style, lv_color_black());
+    // Wenden Sie den Stil auf das Chart an
+    lv_obj_add_style(chart, &style, LV_PART_TICKS);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, recipe.temperatures.size(), 1, true, 20);
-    // Setzen der Y-Achsen-Ticks
     int y_major_tick_count = 10; // Anzahl der Haupt-Ticks auf der Y-Achse
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 2, 2, y_major_tick_count, 1, true, 25);
-    // Cursor hinzufügen
-    
-    // Event-Handler hinzufügen
     lv_obj_add_event_cb(chart, chart_touch_event_cb, LV_EVENT_PRESSED, nullptr);
     lv_chart_set_all_value(chart, ser, LV_CHART_POINT_NONE);
     for (auto& temp : recipe.temperatures) {
         lv_chart_set_next_value(chart, ser, temp);
     }
-
     lv_chart_refresh(chart);
 }
 
