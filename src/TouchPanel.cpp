@@ -159,12 +159,13 @@ void LGFX::lvgl_init()
     static lv_disp_draw_buf_t disp_buf;
     init_lvgl_fs();
 // Puffer für den gesamten Bildschirm im PSRAM allokieren
-    static lv_color_t *buf = (lv_color_t *)ps_malloc(TFT_WIDTH * TFT_HEIGHT * sizeof(lv_color_t));
+    static lv_color_t *buf = (lv_color_t *)ps_malloc(TFT_WIDTH * TFT_HEIGHT * sizeof(lv_color_t)*2);
+    static lv_color_t *buf1 = (lv_color_t *)ps_malloc(TFT_WIDTH * TFT_HEIGHT * sizeof(lv_color_t)*2);
     if (buf == NULL) {
     // Fehlerbehandlung: Nicht genug Speicher im PSRAM oder PSRAM ist nicht verfügbar.
     return; // oder eine andere geeignete Fehlerbehandlung
     }
-    lv_disp_draw_buf_init(&disp_buf, buf, NULL, TFT_WIDTH * TFT_HEIGHT);
+    lv_disp_draw_buf_init(&disp_buf, buf, buf1, TFT_WIDTH * TFT_HEIGHT);
     lv_disp_drv_init(&disp_drv);  // Treiberstruktur initialisieren
     disp_drv.hor_res = TFT_WIDTH;
     disp_drv.ver_res = TFT_HEIGHT;

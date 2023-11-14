@@ -31,6 +31,8 @@ OTAUpdates otaUpdates;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
 
+
+
 DateTime getRTCDateTime() {
     return rtc.now();
 }
@@ -108,7 +110,7 @@ void setup() {
     modbusScanner.begin();
     display.init(); 
     display.lvgl_init();
-    otaUpdates.begin("Ihr_WLAN_SSID", "Ihr_WLAN_Passwort");
+    otaUpdates.begin("savedSSID", "savedPassword");
 
     }
 
@@ -130,8 +132,6 @@ void loop() {
     if (millis() - lastTime > 1000) {
         lastTime = millis();
         DateTime now = rtc.now();
-        
-        // Hier können Sie die aktuelle Zeit und das Datum verwenden
     }
     otaUpdates.handle();
 }
