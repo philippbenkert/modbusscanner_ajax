@@ -15,7 +15,6 @@ extern WebSocketHandler webSocketHandler;
 extern RTC_DS3231 rtc;
 
 // Implementierung von drawStatus und allen anderen statusbezogenen Funktionen
-
 bool dstEnabled; // Irgendwo in Ihrem Code definiert und gesetzt
 bool isCurrentlyDST; // Diese Variable speichert den DST-Status
 
@@ -131,8 +130,10 @@ void drawStatus() {
 
 void dst_switch_event_cb(lv_event_t * e) {
     lv_obj_t * obj = lv_event_get_target(e);
-    dstEnabled = lv_obj_get_state(obj); // oder lv_obj_get_state(obj) & LV_STATE_CHECKED für lvgl v7
-    saveDSTEnabled(); // Speichere den neuen Zustand
+    bool is_checked = lv_obj_get_state(obj) & LV_STATE_CHECKED;
+
+    // Speichern Sie den neuen Zustand von dstEnabled
+    dstEnabled = is_checked;    saveDSTEnabled(); // Speichere den neuen Zustand
 
     // Möglicherweise müssen Sie hier die Zeit sofort anpassen
     adjustForDST();
@@ -146,44 +147,85 @@ void dst_switch_event_cb(lv_event_t * e) {
     lv_obj_t * datetimeContainer = lv_obj_create(lv_scr_act());
     lv_obj_set_size(datetimeContainer, LV_PCT(100), LV_PCT(100));
     lv_obj_center(datetimeContainer);
+    lv_obj_set_style_bg_color(datetimeContainer, lv_color_hex(0x00AEEF), 0); // Beispielfarbe
+    lv_obj_set_style_border_width(datetimeContainer, 0, 0);
+    lv_obj_set_style_radius(datetimeContainer, 10, 0); // Abgerundete Ecken
 
     // Erstellen und positionieren Sie die Überschrift
     lv_obj_t * label = lv_label_create(datetimeContainer);
     lv_label_set_text(label, "Datum und Uhrzeit einstellen");
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 20);  // Positionieren Sie die Überschrift oben im Container
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, LV_STATE_DEFAULT); // Beispiel Schriftart
+
+    // Roller-Designanpassungen
+    static lv_style_t roller_selected_style;
+    lv_style_init(&roller_selected_style);
+    lv_style_set_bg_color(&roller_selected_style, lv_color_hex(0x00AEEF)); // Blauer Hintergrund für ausgewählte Zahlen
+    lv_style_set_text_color(&roller_selected_style, lv_color_hex(0xFFFFFF)); // Weißer Text
 
     // Erstellen Sie Roller für Tag, Monat, Jahr, Stunde und Minute
     dayRoller = lv_roller_create(datetimeContainer);
     lv_roller_set_options(dayRoller, "01\n02\n03\n04\n05\n06\n07\n08\n09\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31", LV_ROLLER_MODE_INFINITE);
     lv_obj_align(dayRoller, LV_ALIGN_CENTER, -130, -50);
+    lv_obj_set_style_bg_color(dayRoller, lv_color_hex(0xFF8C00), LV_PART_MAIN); // Hintergrundfarbe
+    lv_obj_set_style_text_font(dayRoller, &lv_font_montserrat_16, LV_STATE_DEFAULT); // Text Schriftart
+    lv_obj_set_style_text_color(dayRoller, lv_color_hex(0x000000), LV_PART_MAIN); // Schwarzer Text
+    lv_obj_add_style(dayRoller, &roller_selected_style, LV_PART_SELECTED);
 
     monthRoller = lv_roller_create(datetimeContainer);
     lv_roller_set_options(monthRoller, "Jan\nFeb\nMar\nApr\nMay\nJun\nJul\nAug\nSep\nOct\nNov\nDec", LV_ROLLER_MODE_INFINITE);
     lv_obj_align(monthRoller, LV_ALIGN_CENTER, -70, -50);
+    lv_obj_set_style_bg_color(monthRoller, lv_color_hex(0xFF8C00), LV_PART_MAIN); // Hintergrundfarbe
+    lv_obj_set_style_text_font(monthRoller, &lv_font_montserrat_16, LV_STATE_DEFAULT); // Text Schriftart
+    lv_obj_set_style_text_color(monthRoller, lv_color_hex(0x000000), LV_PART_MAIN); // Schwarzer Text
+    lv_obj_add_style(monthRoller, &roller_selected_style, LV_PART_SELECTED);
 
     yearRoller = lv_roller_create(datetimeContainer);
     lv_roller_set_options(yearRoller, "2020\n2021\n2022\n2023\n2024\n2025\n2026\n2027\n2028\n2029\n2030", LV_ROLLER_MODE_INFINITE);
     lv_obj_align(yearRoller, LV_ALIGN_CENTER, 0, -50);
+    lv_obj_set_style_bg_color(yearRoller, lv_color_hex(0xFF8C00), LV_PART_MAIN); // Hintergrundfarbe
+    lv_obj_set_style_text_font(yearRoller, &lv_font_montserrat_16, LV_STATE_DEFAULT); // Text Schriftart
+    lv_obj_set_style_text_color(yearRoller, lv_color_hex(0x000000), LV_PART_MAIN); // Schwarzer Text
+    lv_obj_add_style(yearRoller, &roller_selected_style, LV_PART_SELECTED);
 
     hourRoller = lv_roller_create(datetimeContainer);
     lv_roller_set_options(hourRoller, "00\n01\n02\n03\n04\n05\n06\n07\n08\n09\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23", LV_ROLLER_MODE_INFINITE);
     lv_obj_align(hourRoller, LV_ALIGN_CENTER, 70, -50);
+    lv_obj_set_style_bg_color(hourRoller, lv_color_hex(0xFF8C00), LV_PART_MAIN); // Hintergrundfarbe
+    lv_obj_set_style_text_font(hourRoller, &lv_font_montserrat_16, LV_STATE_DEFAULT); // Text Schriftart
+    lv_obj_set_style_text_color(hourRoller, lv_color_hex(0x000000), LV_PART_MAIN); // Schwarzer Text
+    lv_obj_add_style(hourRoller, &roller_selected_style, LV_PART_SELECTED);
 
     minuteRoller = lv_roller_create(datetimeContainer);
     lv_roller_set_options(minuteRoller, "00\n01\n02\n03\n04\n05\n06\n07\n08\n09\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59", LV_ROLLER_MODE_INFINITE);
     lv_obj_align(minuteRoller, LV_ALIGN_CENTER, 130, -50);
+    lv_obj_set_style_bg_color(minuteRoller, lv_color_hex(0xFF8C00), LV_PART_MAIN); // Hintergrundfarbe
+    lv_obj_set_style_text_font(minuteRoller, &lv_font_montserrat_16, LV_STATE_DEFAULT); // Text Schriftart
+    lv_obj_set_style_text_color(minuteRoller, lv_color_hex(0x000000), LV_PART_MAIN); // Schwarzer Text
+    lv_obj_add_style(minuteRoller, &roller_selected_style, LV_PART_SELECTED);
 
     DateTime now = getRTCDateTime(); // Obtain the current DateTime from RTC
     setDateTimeRollersToCurrent(); // Pass the 'now' as argument
 
+    // DST-Switch-Designanpassungen
+    static lv_style_t dst_switch_style;
+    lv_style_init(&dst_switch_style);
+    lv_style_set_bg_color(&dst_switch_style, lv_color_hex(0xFF8C00)); // Hintergrundfarbe des Switch-Indikators
+
     lv_obj_t *dstSwitch = lv_switch_create(datetimeContainer);
-    lv_obj_align(dstSwitch, LV_ALIGN_CENTER, 0, 70);
+    lv_obj_align(dstSwitch, LV_ALIGN_CENTER, 0, 90);
     lv_obj_add_event_cb(dstSwitch, dst_switch_event_cb, LV_EVENT_CLICKED, NULL);
     if (dstEnabled) {
         lv_obj_add_state(dstSwitch, LV_STATE_CHECKED); // Turn the switch "on"
     } else {
         lv_obj_clear_state(dstSwitch, LV_STATE_CHECKED); // Turn the switch "off"
     }
+    lv_obj_add_style(dstSwitch, &dst_switch_style, LV_PART_INDICATOR);
+    lv_obj_add_style(dstSwitch, &dst_switch_style, LV_PART_KNOB);
+
+    lv_obj_set_style_bg_color(dstSwitch, lv_color_hex(0xFF8C00), LV_PART_INDICATOR); // Farbe des Indikators
+    lv_obj_set_style_bg_color(dstSwitch, lv_color_hex(0xFFFFFF), LV_PART_KNOB); // Farbe des Knopfes
+
     // Erstellen und positionieren Sie die Überschrift
     lv_obj_t * label1 = lv_label_create(datetimeContainer);
     lv_label_set_text(label1, "Sommer-/Winterumschaltung");
@@ -191,20 +233,27 @@ void dst_switch_event_cb(lv_event_t * e) {
 
     // Hinzufügen der Bestätigungs- und Abbrechen-Schaltflächen
     lv_obj_t * btnm = lv_btnmatrix_create(datetimeContainer);
-    
+    lv_obj_set_style_bg_color(btnm, lv_color_hex(0xFF8C00), LV_PART_ITEMS); // Farbe der Buttons
+    lv_obj_set_style_text_color(btnm, lv_color_hex(0x00AEEF), LV_PART_MAIN); // Weißer Text
+
+    // Anpassen des Hintergrunds der Buttons in der Buttonmatrix
+    static lv_style_t btnm_style;
+    lv_style_init(&btnm_style);
+    lv_style_set_bg_color(&btnm_style, lv_color_hex(0x00AEEF)); // Blauer Hintergrund
+    lv_style_set_text_color(&btnm_style, lv_color_hex(0xFFFFFF)); // Weißer Text
+    lv_obj_add_style(btnm, &btnm_style, LV_PART_MAIN);
+
     static const char * btnm_map[] = {"OK", "Abbrechen", ""};
     lv_btnmatrix_set_map(btnm, btnm_map);
-    lv_obj_set_size(btnm, 240, 60); // Breite und Höhe der Buttonmatrix
+    lv_obj_set_size(btnm, 240, 60);
 
-    // Setze die Anzahl der Spalten und Zeilen für die Buttonmatrix
-    // Hier nehmen wir an, dass Sie zwei Schaltflächen nebeneinander wollen, jede 120x60
-    lv_btnmatrix_set_btn_ctrl_all(btnm, LV_BTNMATRIX_CTRL_CHECKABLE); // Nur wenn die Buttons "checkable" sein sollen
-    lv_btnmatrix_set_btn_width(btnm, 0, 2); // Setzt die Breite des ersten Buttons auf '2' Einheiten
-    lv_btnmatrix_set_btn_width(btnm, 1, 2); // Setzt die Breite des zweiten Buttons auf '2' Einheiten
+    lv_btnmatrix_set_btn_ctrl_all(btnm, LV_BTNMATRIX_CTRL_CHECKABLE);
+    lv_btnmatrix_set_btn_width(btnm, 0, 2);
+    lv_btnmatrix_set_btn_width(btnm, 1, 2);
 
-    // Schließlich die Schaltflächen im Container zentrieren
-    lv_obj_align(btnm, LV_ALIGN_CENTER, 0, 150); // Zentriert die Buttonmatrix im Container
-    // Hinzufügen von Event-Callbacks für die Schaltflächen
+    lv_obj_align(btnm, LV_ALIGN_CENTER, 0, 150);
+
+    // Event-Callbacks für die Schaltflächen hinzufügen
     lv_obj_add_event_cb(btnm, datetime_set_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 }
 

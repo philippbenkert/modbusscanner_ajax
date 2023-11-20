@@ -57,27 +57,17 @@ void adjustForDST() {
 }
 
 bool checkDST(DateTime now) {
-    // Die EU wechselt zur Sommerzeit am letzten Sonntag im März
-    // und zurück zur Winterzeit am letzten Sonntag im Oktober.
-    // Hier ist eine vereinfachte Prüfung, die nur die Monate betrachtet.
-
     if (now.month() < 3 || now.month() > 10) return false; // Keine DST von November bis Februar
     if (now.month() > 3 && now.month() < 10) return true; // DST von April bis September
 
-    // Für März und Oktober benötigen wir eine genauere Prüfung:
-    // Finde den letzten Sonntag im Monat
-    int day = (31 - (DateTime(now.year(), now.month(), 31).dayOfTheWeek() + 1)) % 7;
-    DateTime lastSunday(now.year(), now.month(), 31 - day);
-
-    if (now.month() == 3) {
-        // Wenn das aktuelle Datum nach dem letzten Sonntag im März ist, ist DST aktiv
-        return now >= lastSunday;
-    } else if (now.month() == 10) {
-        // Wenn das aktuelle Datum vor dem letzten Sonntag im Oktober ist, ist DST aktiv
-        return now < lastSunday;
+    // Berechnung des letzten Sonntags im Monat
+    DateTime lastSunday(now.year(), now.month(), 1);
+    lastSunday = lastSunday + TimeSpan(31 - lastSunday.dayOfTheWeek(), 0, 0, 0);
+    if (lastSunday.month() != now.month()) {
+        lastSunday = lastSunday - TimeSpan(7, 0, 0, 0);
     }
 
-    return false; // Standardmäßig keine DST
+    return (now.month() == 3) ? (now >= lastSunday) : (now < lastSunday);
 }
 
 String getDateTimeStr() {

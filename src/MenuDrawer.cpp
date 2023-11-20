@@ -15,6 +15,7 @@ const int screenPadding = 10;
 const int numItems = 4;
 lv_obj_t *content_container;
 lv_obj_t* menuButtons[numItems]; // Array zum Speichern der Menü-Buttons
+bool isInitialMenuLoad = true;
 
 // Externe Verweise
 extern SDCardHandler sdCard;
@@ -67,8 +68,6 @@ void drawMenu() {
 
     int spaceBetweenItems = (TFT_WIDTH - 2 * screenPadding - numItems * iconSize) / (numItems - 1);
 
-    // Setzen des aktiven Index auf 0 beim Laden
-
     for (int i = 0; i < numItems; i++) {
         MenuItem item = menuItems[i];
 
@@ -92,18 +91,29 @@ void drawMenu() {
 
                 // Rufen Sie die spezifische Funktion für den Button auf
                 menuItems[clickedIndex].action(e);
-
             }
         }, LV_EVENT_CLICKED, (void*)i);
     }
 
     // Aktualisieren der Button-Styles
     updateButtonStyles();
-        // Auslösen der Aktion des ersten Buttons
-    wlanSettingsFunction; // NULL oder ein passender Event-Parameter
-    activeButtonIndex = 0;
+    // Erstellen eines temporären Event-Objekts
+    lv_event_t tempEvent;
 
-}
+    // Initialisieren des Event-Objekts
+    lv_obj_t *tempObj = lv_obj_create(lv_scr_act()); // Erstellen eines temporären LVGL-Objekts
+    tempEvent.target = tempObj; // Setzen des Zielobjekts für das Event
+    tempEvent.current_target = tempObj; // Setzen des aktuellen Zielobjekts
+    tempEvent.code = LV_EVENT_CLICKED; // Setzen eines Event-Codes, z.B. LV_EVENT_CLICKED
+
+    // Aufrufen der Funktion mit dem temporären Event
+    scanFunctionsFunction(&tempEvent);
+
+    // Aufräumen
+    lv_obj_del(tempObj); // Löschen des temporären LVGL-Objekts
+    
+    }
+
 
 void setupContentContainer() {
     

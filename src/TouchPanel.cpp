@@ -21,7 +21,6 @@ lv_fs_res_t my_tell_cb(lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p);
 
 extern SDCardHandler sdCard;
 
-
 LGFX::LGFX()
 {
     // Bus-Konfiguration

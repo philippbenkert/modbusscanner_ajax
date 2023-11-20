@@ -93,14 +93,18 @@ void chart_touch_event_cb(lv_event_t* e) {
     lv_chart_set_cursor_point(chart, cursor, ser, point_id);
     }    
     updateCursorInfo(chart, current_recipe, point_id);
+    if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
     lv_chart_refresh(chart);
+}
 }
 
 void clearCursor() {
     if (cursor) {
         //lv_obj_del((lv_obj_t*)cursor);
         cursor = nullptr;
+        if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
         lv_chart_refresh(chart);
+        }
     }
 }
 
@@ -121,7 +125,9 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         lv_obj_set_size(cursor_info_label, 100, 20); // Passen Sie die Größe nach Bedarf an
         lv_obj_align(cursor_info_label, LV_ALIGN_TOP_RIGHT, -10, 10); // Rechts oben im Chart positionieren
         lv_obj_add_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN); // Verstecken, bis benötigt
+        if (chart && lv_obj_is_valid(chart)) {
         ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
+        }
         if (!ser) return;
     }   
      // Löscht den Cursor, falls vorhanden
@@ -144,7 +150,9 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     }
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
     lv_chart_set_point_count(chart, recipe.temperatures.size());
+    if (line_chart && lv_obj_is_valid(line_chart)) {
     zero_line_ser = lv_chart_add_series(line_chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    }
     lv_chart_set_value_by_id2(line_chart, zero_line_ser, 0, 0, 0); // X_MIN: Minimale X-Position
     lv_chart_set_value_by_id2(line_chart, zero_line_ser, 1, X_MAX, 0); // X_MAX: Maximale X-Position
     lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
@@ -163,7 +171,9 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     for (auto& temp : recipe.temperatures) {
         lv_chart_set_next_value(chart, ser, temp);
     }
+    if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
     lv_chart_refresh(chart);
+}
 }
 
 void clearLabels(std::vector<lv_obj_t*>& labels) {
