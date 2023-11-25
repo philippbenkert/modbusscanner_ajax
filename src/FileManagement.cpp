@@ -12,12 +12,22 @@ std::vector<Recipe> recipes;
 lv_obj_t* chart = nullptr;
 lv_chart_series_t* ser = nullptr;
 lv_obj_t* recipe_dropdown = nullptr;
-lv_obj_t* line_chart = nullptr;
 lv_chart_series_t* zero_line_ser = nullptr;
+lv_obj_t* line_chart = nullptr;
 
-
+static lv_style_t save_btn_style;
+static bool is_save_btn_style_initialized = false;
 bool dropdown_exists = false;
 int selectedRecipeIndex = 0;
+
+void initialize_save_btn_style() {
+    if (!is_save_btn_style_initialized) {
+        lv_style_init(&save_btn_style);
+        lv_style_set_bg_color(&save_btn_style, lv_color_hex(0x00AEEF));
+        lv_style_set_bg_opa(&save_btn_style, LV_OPA_COVER);
+        is_save_btn_style_initialized = true;
+    }
+}
 
 void showSaveConfirmationPopup() {
     lv_obj_t* mbox = lv_msgbox_create(lv_scr_act(), "Gespeichert", "Das Rezept wurde erfolgreich gespeichert!", nullptr, true);
@@ -47,10 +57,7 @@ void createSaveButton(lv_obj_t * parent) {
     if (!parent || !lv_obj_is_valid(parent)) return;
 
     // Erstellen Sie einen neuen Stil für den Button
-    static lv_style_t save_btn_style;
-    lv_style_init(&save_btn_style);
-    lv_style_set_bg_color(&save_btn_style, lv_color_hex(0x00AEEF)); // Setzen Sie die gewünschte Hintergrundfarbe
-    lv_style_set_bg_opa(&save_btn_style, LV_OPA_COVER); // Deckkraft auf Maximum setzen
+    initialize_save_btn_style();
     // Erstellen Sie den Button und wenden Sie den Stil an
     lv_obj_t* save_btn = lv_btn_create(parent);
     lv_obj_add_style(save_btn, &save_btn_style, 0); // Stil auf den Button anwenden
@@ -108,5 +115,6 @@ void fileManagementFunction(lv_event_t *e) {
     //createSaveButton(content_container); // Button hinzufügen
     if (!recipes.empty()) {
         updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
+        isMenuLocked = false;
     }
 }

@@ -6,6 +6,7 @@
 const size_t JSON_DOC_SIZE = 512; // Adjust as needed
 const char* CONFIG_FILE = "/config/modbus-config.json";
 
+
 bool saveModbusConfig(const char* key, const char* value) {
     DynamicJsonDocument doc(JSON_DOC_SIZE);
     File file = LittleFS.open(CONFIG_FILE, "r+");

@@ -11,6 +11,7 @@ std::vector<lv_obj_t*> x_axis_labels;
 std::vector<lv_obj_t*> temp_labels;
 lv_obj_t* cursor_info_label;
 extern lv_obj_t* recipe_dropdown;
+static lv_style_t style;
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
     lv_obj_t* label = lv_label_create(parent);
@@ -18,6 +19,13 @@ lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord
     lv_label_set_text(label, text);
     lv_obj_set_pos(label, x, y);
     return label;
+}
+
+void initStyles() {
+    if (!initStyles) {
+    lv_style_init(&style);
+    lv_style_set_text_color(&style, lv_color_black());
+    }
 }
 
 void readRecipesFromFile() {
@@ -108,8 +116,27 @@ void clearCursor() {
     }
 }
 
+lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe& recipe, lv_style_t* style) {
+    lv_obj_t* chart = lv_chart_create(parent);
+    lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
+    lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -5);
+    lv_chart_set_type(chart, chart_type);
+
+    int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end()) - Y_AXIS_PADDING;
+    int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end()) + Y_AXIS_PADDING;
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp, max_temp);
+
+    if (chart_type == LV_CHART_TYPE_LINE) {
+        lv_chart_set_point_count(chart, recipe.temperatures.size());
+    }
+
+    lv_obj_add_style(chart, style, 0);
+    return chart;
+}
+
 void updateChartBasedOnRecipe(const Recipe& recipe) {
     clearContentArea();
+
     createRecipeDropdown(content_container);
     createSaveButton(content_container); // Button hinzufügen
     int X_MAX = recipe.temperatures.size(); // Maximale X-Position basierend auf der Anzahl der Temperaturen
@@ -119,48 +146,49 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         chart = lv_chart_create(content_container);
         lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
         lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -5);
-        lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
         cursor_info_label = lv_label_create(chart);
         lv_label_set_text(cursor_info_label, ""); // Kein Text zu Beginn
         lv_obj_set_size(cursor_info_label, 100, 20); // Passen Sie die Größe nach Bedarf an
         lv_obj_align(cursor_info_label, LV_ALIGN_TOP_RIGHT, -10, 10); // Rechts oben im Chart positionieren
         lv_obj_add_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN); // Verstecken, bis benötigt
         if (chart && lv_obj_is_valid(chart)) {
+        lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
         ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
         }
         if (!ser) return;
     }   
+    if (chart && lv_obj_is_valid(chart) && lv_obj_has_class(chart, &lv_chart_class)) {
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
+    lv_chart_set_point_count(chart, recipe.temperatures.size());
+    }
      // Löscht den Cursor, falls vorhanden
     clearCursor();
     if (!cursor) {
+        if (chart && lv_obj_is_valid(chart) && lv_obj_has_class(chart, &lv_chart_class)) {
         cursor = lv_chart_add_cursor(chart, lv_palette_main(LV_PALETTE_BLUE), LV_DIR_VER);
-        if (cursor) {
         }
     }
-    if (!line_chart || !lv_obj_is_valid(line_chart)) {
-        line_chart = lv_chart_create(content_container);
-        lv_obj_set_size(line_chart, TFT_WIDTH - 60, 170);
-        lv_obj_align(line_chart, LV_ALIGN_BOTTOM_MID, 10, -5);
-        lv_chart_set_type(line_chart, LV_CHART_TYPE_SCATTER);
-        lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_bg_opa(line_chart, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
-        lv_obj_clear_flag(line_chart, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_set_style_shadow_opa(line_chart, LV_OPA_TRANSP, 0);
-    }
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
-    lv_chart_set_point_count(chart, recipe.temperatures.size());
-    if (line_chart && lv_obj_is_valid(line_chart)) {
-    zero_line_ser = lv_chart_add_series(line_chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    }
-    lv_chart_set_value_by_id2(line_chart, zero_line_ser, 0, 0, 0); // X_MIN: Minimale X-Position
-    lv_chart_set_value_by_id2(line_chart, zero_line_ser, 1, X_MAX, 0); // X_MAX: Maximale X-Position
-    lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
-    lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_X, 0, recipe.temperatures.size());
-    static lv_style_t style;
-    lv_style_init(&style);
-    // Setzen Sie die Textfarbe auf Weiß
-    lv_style_set_text_color(&style, lv_color_black());
+    //if (!line_chart || !lv_obj_is_valid(line_chart)) {
+    //    line_chart = lv_chart_create(content_container);
+    //    lv_obj_set_size(line_chart, TFT_WIDTH - 60, 170);
+    //    lv_obj_align(line_chart, LV_ALIGN_BOTTOM_MID, 10, -5);
+    //    lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
+    //    lv_obj_set_style_bg_opa(line_chart, LV_OPA_TRANSP, 0);
+    //    lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
+    //    lv_obj_clear_flag(line_chart, LV_OBJ_FLAG_CLICKABLE);
+    //    lv_obj_set_style_shadow_opa(line_chart, LV_OPA_TRANSP, 0);
+    //}
+    //if (line_chart && lv_obj_is_valid(line_chart)) {
+    //    lv_chart_set_type(line_chart, LV_CHART_TYPE_SCATTER);
+    //    zero_line_ser = lv_chart_add_series(line_chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    //}
+    //if (line_chart && lv_obj_is_valid(line_chart) && lv_obj_has_class(line_chart, &lv_chart_class)) {
+    //lv_chart_set_value_by_id2(line_chart, zero_line_ser, 0, 0, 0); // X_MIN: Minimale X-Position
+    //lv_chart_set_value_by_id2(line_chart, zero_line_ser, 1, X_MAX, 0); // X_MAX: Maximale X-Position
+    //lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
+    //lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_X, 0, recipe.temperatures.size());
+    //}
+    initStyles();
     // Wenden Sie den Stil auf das Chart an
     lv_obj_add_style(chart, &style, LV_PART_TICKS);
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, recipe.temperatures.size(), 1, true, 20);

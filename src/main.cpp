@@ -30,8 +30,13 @@ WebServer webServer;
 OTAUpdates otaUpdates;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
+extern void connectToWifi(const char* ssid, const char* password);
+extern bool loadSTACredentials(String &ssid, String &password);
+extern void updateShouldReconnect(bool connect);
 
-
+bool shouldReconnect = true; // oder false, je nach gewünschter Standardfunktionalität
+String lastSSID;
+String lastPassword;
 
 DateTime getRTCDateTime() {
     return rtc.now();
@@ -112,6 +117,10 @@ void setup() {
     display.lvgl_init();
     otaUpdates.begin("savedSSID", "savedPassword");
 
+    String ssid, password;
+    if (loadSTACredentials(lastSSID, lastPassword)) {
+        connectToWifi(lastSSID.c_str(), lastPassword.c_str());
+    }
     }
 
 void loop() {
@@ -134,4 +143,7 @@ void loop() {
         DateTime now = rtc.now();
     }
     otaUpdates.handle();
+    if (!WiFi.isConnected() && shouldReconnect) {
+        connectToWifi(lastSSID.c_str(), lastPassword.c_str());
+    }
 }

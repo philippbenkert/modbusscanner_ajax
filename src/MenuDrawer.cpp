@@ -16,6 +16,7 @@ const int numItems = 4;
 lv_obj_t *content_container;
 lv_obj_t* menuButtons[numItems]; // Array zum Speichern der Menü-Buttons
 bool isInitialMenuLoad = true;
+bool isMenuLocked = false;
 
 // Externe Verweise
 extern SDCardHandler sdCard;
@@ -79,20 +80,29 @@ void drawMenu() {
         if (!iconCache[i]) {
             iconCache[i] = lv_img_create(btn);
             lv_img_set_src(iconCache[i], String("S:" + String(item.iconPath)).c_str());
+            lv_obj_center(iconCache[i]); // Zentrieren des Icons im Button
+
         }
 
-        lv_obj_align(iconCache[i], LV_ALIGN_CENTER, 0, 5);
-
         lv_obj_add_event_cb(btn, [](lv_event_t * e) {
-            int clickedIndex = (int)lv_event_get_user_data(e);
-            if (clickedIndex != activeButtonIndex) {
-                activeButtonIndex = clickedIndex;
-                updateButtonStyles();
+    if (isMenuLocked) {
+        return; // Ignoriere Klicks, wenn das Menü gesperrt ist
+    }
 
-                // Rufen Sie die spezifische Funktion für den Button auf
-                menuItems[clickedIndex].action(e);
-            }
-        }, LV_EVENT_CLICKED, (void*)i);
+    int clickedIndex = (int)lv_event_get_user_data(e);
+    if (clickedIndex != activeButtonIndex) {
+        activeButtonIndex = clickedIndex;
+        updateButtonStyles();
+
+        // Rufen Sie die spezifische Funktion für den Button auf
+        isMenuLocked = true;
+        menuItems[clickedIndex].action(e);
+
+        // Sperre das Menü und setze einen Timer, um es zu entsperren
+        
+        
+    }
+}, LV_EVENT_CLICKED, (void*)i);
     }
 
     // Aktualisieren der Button-Styles
@@ -116,11 +126,16 @@ void drawMenu() {
 
 
 void setupContentContainer() {
-    
+    static bool is_new_style_initialized = false; // Neue statische Variable
     static lv_style_t new_style;
-    lv_style_init(&new_style);
-    //lv_style_set_text_font(&new_style, &lv_font_saira_500);
-    lv_style_set_text_font(&new_style, LV_FONT_DEFAULT); // Verwenden Sie LV_FONT_DEFAULT oder ein anderes eingebautes Font
+
+    if (!is_new_style_initialized) {
+        lv_style_init(&new_style);
+        //lv_style_set_text_font(&new_style, &lv_font_saira_500);
+        lv_style_set_text_font(&new_style, LV_FONT_DEFAULT); // Verwenden Sie LV_FONT_DEFAULT oder ein anderes eingebautes Font
+        is_new_style_initialized = true; // Setzen Sie die Variable auf true, nachdem der Stil initialisiert wurde
+    }
+
     lv_obj_add_style(lv_scr_act(), &new_style, 0);
     // Erstellt den Container für den Inhalt
     content_container = lv_obj_create(lv_scr_act());
