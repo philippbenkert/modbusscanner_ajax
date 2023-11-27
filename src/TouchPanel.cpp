@@ -178,9 +178,19 @@ void LGFX::lvgl_init()
     lv_png_init();
     setupContentContainer();
     drawMenu();
+    activeButtonIndex = 0;
     updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
     drawStatus();
+    // Rufen Sie wlanSettingsFunction auf, um den Inhalt beim Booten zu laden
+    lv_event_t tempEvent;
+    lv_obj_t *tempObj = lv_obj_create(lv_scr_act()); // Erstellen eines temporären LVGL-Objekts
+    tempEvent.target = tempObj; // Setzen des Zielobjekts für das Event
+    tempEvent.current_target = tempObj; // Setzen des aktuellen Zielobjekts
+    tempEvent.code = LV_EVENT_CLICKED; // Setzen eines Event-Codes, z.B. LV_EVENT_CLICKED
 
+    wlanSettingsFunction(&tempEvent); // Aufrufen der Funktion
+
+    lv_obj_del(tempObj); // Löschen des temporären LVGL-Objekts
 }
 
 void LGFX::lvgl_tick() {

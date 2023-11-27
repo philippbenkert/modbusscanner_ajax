@@ -1,0 +1,30 @@
+[
+    {
+        "geraetName": "Carel Ultracella",
+        "istTemperaturReg": 105,
+        "sollTemperaturReg": 5,
+        "sollMinimumReg": 7,
+        "sollMaximumReg": 8
+    },
+    {
+        "geraetName": "Carel Mastercella, IR33",
+        "istTemperaturReg": 2,
+        "sollTemperaturReg": 4,
+        "sollMinimumReg": 15,
+        "sollMaximumReg": 16
+    },
+    {
+        "geraetName": "Carel Smartcella, IR33+",
+        "istTemperaturReg": 4,
+        "sollTemperaturReg": 16,
+        "sollMinimumReg": 18,
+        "sollMaximumReg": 19
+    },
+    {
+        "geraetName": "Danfoss",
+        "istTemperaturReg": 200,
+        "sollTemperaturReg": 201,
+        "sollMinimumReg": 202,
+        "sollMaximumReg": 203
+    }
+]

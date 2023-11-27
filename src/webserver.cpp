@@ -71,45 +71,6 @@ void WebServer::begin() {
     }
     });
 
-    server.on("/autoscan", HTTP_GET, [this](AsyncWebServerRequest *request) {
-    try {
-        char result[256]; // Passen Sie die Größe entsprechend an
-        snprintf(result, sizeof(result), "%s", modbusScanner.scanRegisters().c_str()); // Annahme: Die scanRegisters-Methode gibt die gescannten Werte als String zurück
-        request->send(200, "text/plain; charset=UTF-8", result);
-    } catch (const std::exception& e) {
-        // Ein spezifischer Fehler ist aufgetreten
-        Serial.println(e.what()); // Loggen Sie den Fehler für die Diagnose
-        request->send(500, "text/plain; charset=UTF-8", "Ein interner Serverfehler ist aufgetreten.");
-    } catch (...) {
-        // Ein allgemeiner Fehler ist aufgetreten
-        Serial.println("Ein unbekannter Fehler ist aufgetreten.");
-        request->send(500, "text/plain; charset=UTF-8", "Ein unbekannter Fehler ist aufgetreten.");
-    }
-    });
-
-    server.on("/save-modbus-settings", HTTP_POST, [this](AsyncWebServerRequest *request) {
-        if (request->hasParam("deviceAddress", true) && request->hasParam("baudrate", true) && request->hasParam("parity", true) && request->hasParam("stopbits", true)) {
-            char deviceAddress[32]; // Passen Sie die Größe entsprechend an
-            char baudrate[32]; // Passen Sie die Größe entsprechend an
-            char parity[32]; // Passen Sie die Größe entsprechend an
-            char stopbits[32]; // Passen Sie die Größe entsprechend an
-
-            
-            request->getParam("deviceAddress", true)->value().toCharArray(deviceAddress, sizeof(deviceAddress));
-            request->getParam("baudrate", true)->value().toCharArray(baudrate, sizeof(baudrate));
-            request->getParam("parity", true)->value().toCharArray(parity, sizeof(parity));
-            request->getParam("stopbits", true)->value().toCharArray(stopbits, sizeof(stopbits));
-
-            char jsonResponse[256]; // Passen Sie die Größe entsprechend an
-            snprintf(jsonResponse, sizeof(jsonResponse), "{\"deviceAddress\":\"%s\",\"baudrate\":\"%s\",\"parity\":\"%s\",\"stopbits\":\"%s\"}", deviceAddress, baudrate, parity, stopbits);
-
-            if (saveToFile("/config/modbus-config.json", jsonResponse)) {
-            request->send(200, "application/json", "{\"success\":true, \"message\":\"Einstellungen erfolgreich gespeichert.\"}");
-        } else {
-            request->send(500, "text/plain; charset=UTF-8", "Fehler beim Speichern der MODBUS-Einstellungen.");
-        }
-    }});
-
     server.on("/get-modbus-settings", HTTP_GET, [this](AsyncWebServerRequest *request){
         const char* filename = "/config/modbus-config.json";
         if (LittleFS.exists(filename)) {

@@ -3,22 +3,93 @@
 #include "ArduinoJson.h"
 #include <esp_exception.h>  // Sie benötigen diese Header-Datei
 #include <esp_task_wdt.h>
+#include <Preferences.h>
+#include "ModbusSettings.h"
 
 
 #define BOARD_485_TX                42
 #define BOARD_485_RX                1
 
+extern Preferences preferences;
 
 const uint16_t MODBUS_MAX_BUFFER = 128;  // Hinzugefügt
 uint16_t responseBuffer[MODBUS_MAX_BUFFER];
 
 ModbusScanner modbusScanner(Serial2);
 
+std::vector<ModbusDeviceConfig> readModbusConfigs(const char* filename) {
+    File file = LittleFS.open(filename, "r");
+    if (!file) {
+        Serial.println("Failed to open config file");
+        return {};
+    }
+
+    DynamicJsonDocument doc(2048); // Größe anpassen, um alle Konfigurationen zu erfassen
+    DeserializationError error = deserializeJson(doc, file);
+    if (error) {
+        Serial.println("Failed to parse config file");
+        return {};
+    }
+
+    std::vector<ModbusDeviceConfig> configs;
+    for (JsonObject obj : doc.as<JsonArray>()) {
+        ModbusDeviceConfig config;
+        config.geraetName = obj["geraetName"] | "Unbekanntes Gerät";
+        config.istTemperaturReg = obj["istTemperaturReg"];
+        config.sollTemperaturReg = obj["sollTemperaturReg"];
+        config.sollMinimumReg = obj["sollMinimumReg"];
+        config.sollMaximumReg = obj["sollMaximumReg"];
+        configs.push_back(config);
+    }
+
+    return configs;
+}
+
+bool ModbusScanner::identifyDevices(std::vector<ModbusDeviceConfig>& configs) {
+    bool deviceIdentified = false;
+    String identifiedDeviceName = "Kein Gerät";
+
+    for (auto& config : configs) {
+        if (config.versuche < 1) {
+            uint8_t serverID = deviceAddress;
+            uint8_t functionCode = READ_HOLD_REGISTER;
+            uint16_t startAddress = config.istTemperaturReg;
+            uint16_t registerCount = 1;
+            uint32_t token = 0; // You might need to provide a meaningful token here
+
+            Error res = node.addRequest(token, serverID, functionCode, startAddress, registerCount);
+
+            if (res == SUCCESS) {
+    unsigned long startTime = millis();
+    while (millis() - startTime < 100) {
+        ModbusMessage response = node.syncRequest(token, serverID, functionCode, startAddress, registerCount);
+
+        // Check if the response is valid and not an error
+        if (response.getFunctionCode() == functionCode && response.getError() == SUCCESS) {
+            deviceIdentified = true;
+            identifiedDeviceName = config.geraetName;
+            break;
+        }
+    }
+} else {
+    config.versuche++;
+}
+
+            if (deviceIdentified) {
+                break;
+            }
+        }
+    }
+
+    return deviceIdentified;
+}
+
 
 
 ModbusScanner::ModbusScanner(HardwareSerial& serial, int8_t rtsPin) : node(rtsPin) {
-    deviceAddress = getModbusConfig("deviceAddress").toInt();
-    if(deviceAddress == 0) deviceAddress = 1;
+    preferences.begin("modbus_settings", true);
+    deviceAddress = preferences.getUInt("deviceAddress", 1); // Standardwert 1
+    preferences.end();
 }
 
 bool ModbusScanner::isClientReachable() {
@@ -32,16 +103,18 @@ bool ModbusScanner::isClientReachable() {
     }
 }
 
-void ModbusScanner::begin() {
+bool ModbusScanner::tryConnectAndIdentify(std::vector<ModbusDeviceConfig>& configs) {
+    if (isClientReachable()) {
+        return identifyDevices(configs);
+    }
+    return false; // Verbindung fehlgeschlagen oder Gerät nicht identifiziert
+}
 
-    uint32_t baudRate = getModbusConfig("baudrate").toInt();
-    if(baudRate == 0) baudRate = 19200;  // Standardwert
-    
-    String parity = getModbusConfig("parity");
-    if(parity == "") parity = "n";  // Standardwert
-    
-    uint8_t stopBits = getModbusConfig("stopbits").toInt();
-    if(stopBits == 0) stopBits = 1;  // Standardwert
+void ModbusScanner::begin() {
+    preferences.begin("modbus_settings", true);
+    uint32_t baudRate = preferences.getUInt("baudrate", 19200); // Standardwert 19200
+    String parity = preferences.getString("parity", "n"); // Standardwert "n"
+    uint8_t stopBits = preferences.getUChar("stopbits", 2); // Standardwert 1
 
     // Konfigurieren Sie Serial2 basierend auf den gespeicherten Einstellungen.
     if (parity == "n" && stopBits == 1) {
@@ -69,97 +142,6 @@ void ModbusScanner::begin() {
     } else {
     }
     node.begin(Serial2);  // Verwenden Sie hier Serial2
-}
+        preferences.end();
 
-String ModbusScanner::scanRegisters() {
-    String result = "Function,Address,Value\n";
-    if (!modbusScanner.isClientReachable()) {
-        return result;
-    }
-    // Führen Sie Ihre Modbus-Operationen hier aus
-    for (uint16_t i = 0; i <= 3000; i++) {
-        for (uint8_t func = 1; func <= 4; func++) {
-            result += scanFunction(i, func);
-            delay(50);  // Pause von 50ms
-        }
-    }
-    return result;
-}
-
-void handleData(ModbusMessage msg, uint32_t token) 
-{
-    Serial.printf("Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", msg.getServerID(), msg.getFunctionCode(), token, msg.size());
-    int i = 0;
-    for (auto& byte : msg) {
-        responseBuffer[i++] = byte;
-        Serial.printf("%02X ", byte);
-    }
-}
-
-bool isValidFunctionCode(uint8_t fc) {
-    // Liste der gültigen Modbus-Funktionscodes
-    uint8_t validFunctionCodes[] = {
-        READ_COIL, READ_DISCR_INPUT, READ_HOLD_REGISTER, READ_INPUT_REGISTER,
-        // ... Fügen Sie hier weitere gültige Funktionscodes hinzu
-    };
-    // Überprüfen Sie, ob der gegebene Funktionscode in der Liste der gültigen Codes enthalten ist
-    for (uint8_t validCode : validFunctionCodes) {
-        if (fc == validCode) {
-            return true;
-        }
-    }
-    return false;
-}
-
-String ModbusScanner::scanFunction(uint16_t address, uint8_t function) {
-        
-    String result = "";
-    uint8_t fc = 0;  // Funktion Code
-
-    switch (function) {
-        case 1:
-            fc = READ_COIL;
-            break;
-        case 2:
-            fc = READ_DISCR_INPUT;
-            break;
-        case 3:
-            fc = READ_HOLD_REGISTER;
-            break;
-        case 4:
-            fc = READ_INPUT_REGISTER;
-            break;
-        // ... Fügen Sie hier weitere Fälle hinzu, falls erforderlich
-    }
-
-    // Überprüfen Sie, ob der Funktionscode gültig ist, bevor Sie die Anfrage senden
-    if (!isValidFunctionCode(fc)) {
-        return "Error: Ungültiger Funktionscode\n";
-    }
-    esp_task_wdt_reset();  // Watchdog zurücksetzen
-    Error res = node.addRequest(0, deviceAddress, fc, address, 1);
-    esp_task_wdt_reset();  // Watchdog erneut zurücksetzen nach potenziell blockierendem Aufruf
-    if (res == SUCCESS) {
-        result = "Function " + String(function) + "," + String(address) + "," + String(responseBuffer[0]) + "\n";
-    } else {
-        ModbusError me(res);
-        Serial.printf("Modbus-Fehler: %02X - %s\n", res, (const char *)me);
-        result = "Function " + String(function) + "," + String(address) + ",Error: " + String((const char *)me) + "\n";
-        // Hier können Sie zusätzliche Fehlerbehandlungslogik hinzufügen, z.B. die Schleife oder Funktion frühzeitig beenden
-    }
-    return result;
-}
-
-
-String ModbusScanner::scanSpecificRegister(uint16_t regAddress) {
-    String result = "";
-    Error res = node.addRequest(0, deviceAddress, READ_INPUT_REGISTER, regAddress, 1);
-
-    if (res == SUCCESS) {
-        result = String(responseBuffer[0]);  // Korrigiert
-    } else {
-        ModbusError me(res);
-        result = "Error: " + String((const char *)me);
-    }
-    return result;
 }

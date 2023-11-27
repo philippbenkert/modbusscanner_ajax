@@ -6,6 +6,8 @@
 #include "Recipe.h"
 #include <Preferences.h>
 #include "DateTimeHandler.h"
+#include "WLANSettings.h"
+
 
 extern Preferences preferences;
 std::vector<Recipe> recipes;
@@ -62,7 +64,7 @@ void createSaveButton(lv_obj_t * parent) {
     lv_obj_t* save_btn = lv_btn_create(parent);
     lv_obj_add_style(save_btn, &save_btn_style, 0); // Stil auf den Button anwenden
     lv_obj_set_size(save_btn, 100, 30); // Größe des Buttons anpassen
-    lv_obj_align(save_btn, LV_ALIGN_OUT_BOTTOM_MID, 150, 12); // Position unterhalb des Dropdown-Menüs
+    lv_obj_align(save_btn, LV_ALIGN_OUT_BOTTOM_MID, 170, 10); // Position unterhalb des Dropdown-Menüs
     // Erstellen Sie das Label für den Button
     lv_obj_t* label = lv_label_create(save_btn);
     lv_label_set_text(label, "Speichern");
@@ -96,8 +98,10 @@ void createRecipeDropdown(lv_obj_t * parent) {
         }
         lv_dropdown_set_selected(recipe_dropdown, selectedRecipeIndex);
         lv_obj_set_size(recipe_dropdown, 150, 30); // Größe des Buttons anpassen
-        lv_obj_align(recipe_dropdown, LV_ALIGN_TOP_MID, -70, 10);
+        lv_obj_align(recipe_dropdown, LV_ALIGN_TOP_MID, -50, 10);
         lv_obj_add_event_cb(recipe_dropdown, recipe_dropdown_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
+        lv_obj_add_style(recipe_dropdown, &style_no_border, 0);
+
         dropdown_exists = true;
     }
 }

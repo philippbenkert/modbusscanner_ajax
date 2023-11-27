@@ -13,6 +13,7 @@ struct MenuItem {
     void (*action)(lv_event_t*);  // Funktionssignatur für das Menüelement
 };
 
+extern int activeButtonIndex;
 // Funktionsdeklarationen
 void drawMenu();
 void updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons

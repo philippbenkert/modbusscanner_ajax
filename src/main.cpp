@@ -15,7 +15,7 @@
 #include "RTCControl.h"
 #include "DateTimeHandler.h"
 #include "OTAUpdates.h"
-
+#include "ModbusSettings.h"
 
 // Konstanten
 //#define BOARD_POWER_ON              4
@@ -30,7 +30,7 @@ WebServer webServer;
 OTAUpdates otaUpdates;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
-extern void connectToWifi(const char* ssid, const char* password);
+extern void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
 extern bool loadSTACredentials(String &ssid, String &password);
 extern void updateShouldReconnect(bool connect);
 
@@ -71,6 +71,7 @@ String getWlanSettingsAsJson() {
 }
 
 void setup() {
+    isConnectedModbus = false;
     // Initialize Serial communication
     Serial.begin(115200);
 
@@ -119,11 +120,14 @@ void setup() {
 
     String ssid, password;
     if (loadSTACredentials(lastSSID, lastPassword)) {
-        connectToWifi(lastSSID.c_str(), lastPassword.c_str());
+        connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
     }
+    modbusScanner.begin();
+    //isConnectedModbus = modbusScanner.isClientReachable(); // Überprüfe, ob der Modbus-Client erreichbar ist
+
     }
 
-void loop() {
+    void loop() {
     static uint32_t nextTick = 0;
     uint32_t currentTime = millis();
 
@@ -144,6 +148,16 @@ void loop() {
     }
     otaUpdates.handle();
     if (!WiFi.isConnected() && shouldReconnect) {
-        connectToWifi(lastSSID.c_str(), lastPassword.c_str());
+        connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
+    }
+    if (isConnectedModbus) {
+        auto configs = readModbusConfigs("/config/device.json");
+        if (modbusScanner.tryConnectAndIdentify(configs)) {
+            Serial.println("Gerät identifiziert: " + device);
+        } else {
+            Serial.println("Keine Geräte identifiziert.");
+            isConnectedModbus = false;
+            //updateToggleButtonLabel(btn);
+        }
     }
 }

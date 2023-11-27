@@ -178,35 +178,6 @@ void WebSocketHandler::handleLoadContent(AsyncWebSocketClient *client, const Str
         String jsonResponse = "{\"success\":false, \"error\":\"Datei nicht gefunden oder leer.\"}";
         client->text(jsonResponse);
     }
-
-    // Überprüfen, ob die URL "wlan-settings" enthält und senden Sie die WLAN-Einstellungen
-    if (receivedUrl.indexOf("wlan-settings") != -1) {
-        String wlanSettings = getWlanSettingsAsJson(); // Diese Methode sollte in main.cpp definiert sein
-        client->text(wlanSettings);
-    }
-    if (receivedUrl.indexOf("modbus-settings") != -1) {
-    String modbusSettingsbaudrate = getModbusConfig("baudrate");
-    String modbusSettingsparity = getModbusConfig("parity");
-    String modbusSettingsstopbits = getModbusConfig("stopbits");
-    String modbusSettingsdeviceAddress = getModbusConfig("deviceAddress");
-    
-
-    DynamicJsonDocument doc(1024);
-    doc["baudrate"] = modbusSettingsbaudrate;
-    doc["parity"] = modbusSettingsparity;
-    doc["stopbits"] = modbusSettingsstopbits;
-    doc["deviceAddress"] = modbusSettingsdeviceAddress;
-
-    String output;
-    serializeJson(doc, output);
-
-    client->text(output);
-    }
-    if (receivedUrl.indexOf("file-management") != -1) {
-        String getFiles = WebSocketHandler::getFiles("/logger/"); // Diese Methode sollte in main.cpp definiert sein
-        client->text(getFiles);
-    }
-
 }
 
 

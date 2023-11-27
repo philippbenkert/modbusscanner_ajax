@@ -9,8 +9,8 @@ extern WebSocketHandler webSocketHandler;
 
 static lv_style_t style_bg_rounded;
 static bool is_style_bg_rounded_initialized = false;
-static lv_style_t style_no_border;
-static bool is_style_no_border_initialized = false;
+lv_style_t style_no_border;
+bool is_style_no_border_initialized = false;
 static lv_style_t btn_style;
 static bool is_btn_style_initialized = false;
 static lv_style_t style_kb;
@@ -20,16 +20,18 @@ const int maxWifiConnectAttempts = 3; // Maximale Anzahl von Verbindungsversuche
 String actualPassword;
 bool isConnected = false;
 extern bool shouldReconnect;
-
+lv_obj_t* popup = nullptr; 
 void showAPMode(lv_obj_t * parent);
 void saveCredentials(const char* ssid, const char* password);
 void textarea_event_cb(lv_event_t * e);
 void createKeyboardPopup(lv_obj_t * parent, lv_obj_t * ta);
 void keyboard_event_cb(lv_event_t * e);
 void setupWifiUI(lv_obj_t * parent, const String &wifiSSID, const String &wifiPassword);
-void connectToWifi(const char* ssid, const char* password);
+void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
 void disconnectWifi();
 void updateConnectionButton(lv_obj_t* btn);
+lv_obj_t* showConnectingPopup();
+void closePopup(lv_obj_t*& popup);
 
 void initialize_style_bg_rounded() {
     if (!is_style_bg_rounded_initialized) {
@@ -126,7 +128,7 @@ void updateShouldReconnect(bool connect) {
     shouldReconnect = connect;
 }
 
-static void connect_btn_event_cb(lv_event_t * e) {
+void connect_btn_event_cb(lv_event_t * e) {
     auto * user_data = static_cast<std::pair<lv_obj_t*, lv_obj_t*>*>(lv_event_get_user_data(e));
     lv_obj_t* ssid_input = user_data->first;
     lv_obj_t* password_input = user_data->second;
@@ -142,29 +144,57 @@ static void connect_btn_event_cb(lv_event_t * e) {
         updateShouldReconnect(false);
         lv_label_set_text(label, "Verbinden");
     } else {
-        // Ändern Sie den Text des Buttons zu "Trennen" vor dem Verbindungsversuch
-        lv_label_set_text(label, "Trennen");
+        lv_label_set_text(label, "Trennen"); // Text sofort ändern
+
+        // Popup anzeigen
+        popup = showConnectingPopup();
 
         if (strlen(ssid) > 0 && strlen(password) > 0) {
-            // Speichern der Credentials, wenn beide Felder ausgefüllt sind
             saveCredentials(ssid, password);
-            connectToWifi(ssid, password);
+            connectToWifi(ssid, password, popup);
         } else {
-            // Verwenden Sie die gespeicherten Anmeldeinformationen, wenn das Passwortfeld leer ist
             String savedSSID, savedPassword;
             if (loadSTACredentials(savedSSID, savedPassword)) {
-                connectToWifi(savedSSID.c_str(), savedPassword.c_str());
+                connectToWifi(savedSSID.c_str(), savedPassword.c_str(), popup);
             } else {
-                // Fehlerbehandlung, falls keine gespeicherten Anmeldeinformationen vorhanden sind
                 lv_label_set_text(label, "Verbinden");
                 Serial.println("Keine gespeicherten WLAN-Anmeldeinformationen gefunden.");
+                closePopup(popup); // Popup schließen, wenn keine Anmeldeinformationen vorhanden sind
                 return;
             }
         }
 
         updateShouldReconnect(true);
-        // Aktualisieren Sie den Text des Buttons basierend auf dem Ergebnis des Verbindungsversuchs
+        closePopup(popup); // Popup schließen, wenn der Verbindungsversuch abgeschlossen ist
         lv_label_set_text(label, isConnected ? "Trennen" : "Verbinden");
+    }
+}
+
+lv_obj_t* showConnectingPopup() {
+    Serial.println("Popup wird erstellt");
+    // Erstellen eines modales Hintergrundobjekts
+    lv_obj_t * modal_bg = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(modal_bg, LV_PCT(100), LV_PCT(100));
+    lv_obj_add_style(modal_bg, &style_bg_rounded, 0); // Angenommen, style_bg_rounded ist bereits definiert
+
+    // Erstellen des Popup-Fensters
+    lv_obj_t * popup = lv_obj_create(modal_bg);
+    lv_obj_set_size(popup, 200, 100);
+    lv_obj_center(popup);
+    lv_obj_add_style(popup, &style_bg_rounded, 0); // Wieder, style_bg_rounded ist bereits definiert
+
+    // Hinzufügen eines Labels zum Popup
+    lv_obj_t * label = lv_label_create(popup);
+    lv_label_set_text(label, "Verbindung wird hergestellt...");
+    lv_obj_center(label);
+
+    return modal_bg; // Rückgabe des modales Hintergrundobjekts, das das Popup enthält
+}
+
+void closePopup(lv_obj_t*& popup) {
+    if (popup && lv_obj_has_class(popup, &lv_obj_class)) {
+        lv_obj_del(popup);
+        popup = nullptr;
     }
 }
 
@@ -217,21 +247,23 @@ void setupWifiUI(lv_obj_t * parent, const String &wifiSSID, const String &wifiPa
 
 }
 
-void connectToWifi(const char* ssid, const char* password) {
+void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup){
     WiFi.begin(ssid, password);
     wifiConnectAttempts = 0;
     isConnected = true;
     while (wifiConnectAttempts < maxWifiConnectAttempts) {
         if (WiFi.isConnected()) {
-            isConnected = true;
-            return;
-        }
+        isConnected = true;
+        closePopup(popup); // Schließen des Popups bei erfolgreicher Verbindung
+        return;
+    }
         delay(1000);
         wifiConnectAttempts++;
     }
 
     isConnected = false;
     shouldReconnect = false;
+    closePopup(popup); // Schließen des Popups, wenn die Verbindung fehlschlägt
     // Optional: Aktion, wenn die Verbindung nach maximalen Versuchen nicht hergestellt werden konnte
 }
 

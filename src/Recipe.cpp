@@ -2,6 +2,7 @@
 #include "TouchPanel.h"
 #include "SDCardHandler.h" // If needed for file operations
 #include "FileManagement.h"
+#include "WLANSettings.h"
 
 static lv_chart_cursor_t* cursor = nullptr; // Globale oder statische Variable für den Cursor
 const int Y_AXIS_PADDING = 2;
@@ -12,6 +13,7 @@ std::vector<lv_obj_t*> temp_labels;
 lv_obj_t* cursor_info_label;
 extern lv_obj_t* recipe_dropdown;
 static lv_style_t style;
+static lv_style_t axis_style; // Stil für Achsenbeschriftungen
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
     lv_obj_t* label = lv_label_create(parent);
@@ -21,10 +23,10 @@ lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord
     return label;
 }
 
-void initStyles() {
-    if (!initStyles) {
+void initAxisStyle() {
+    if (!initAxisStyle) {
     lv_style_init(&style);
-    lv_style_set_text_color(&style, lv_color_black());
+    lv_style_set_text_color(&style, lv_color_make(255, 0, 0)); // Setzt die Textfarbe auf Schwarz
     }
 }
 
@@ -96,7 +98,7 @@ void chart_touch_event_cb(lv_event_t* e) {
     }
     lv_point_t p_out;
     lv_chart_get_point_pos_by_id(chart, ser, point_id, &p_out);
-    
+
     if (point_id != LV_CHART_POINT_NONE) {
     lv_chart_set_cursor_point(chart, cursor, ser, point_id);
     }    
@@ -121,6 +123,7 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
     lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
     lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -5);
     lv_chart_set_type(chart, chart_type);
+    lv_obj_add_style(chart, &style_no_border, 0);
 
     int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end()) - Y_AXIS_PADDING;
     int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end()) + Y_AXIS_PADDING;
@@ -136,6 +139,7 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
 
 void updateChartBasedOnRecipe(const Recipe& recipe) {
     clearContentArea();
+    lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
 
     createRecipeDropdown(content_container);
     createSaveButton(content_container); // Button hinzufügen
@@ -144,8 +148,9 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
     if (!chart || !lv_obj_is_valid(chart)) {
         chart = lv_chart_create(content_container);
+        lv_obj_add_style(chart, &style_no_border, 0);
         lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
-        lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -5);
+        lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -10);
         cursor_info_label = lv_label_create(chart);
         lv_label_set_text(cursor_info_label, ""); // Kein Text zu Beginn
         lv_obj_set_size(cursor_info_label, 100, 20); // Passen Sie die Größe nach Bedarf an
@@ -168,40 +173,25 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         cursor = lv_chart_add_cursor(chart, lv_palette_main(LV_PALETTE_BLUE), LV_DIR_VER);
         }
     }
-    //if (!line_chart || !lv_obj_is_valid(line_chart)) {
-    //    line_chart = lv_chart_create(content_container);
-    //    lv_obj_set_size(line_chart, TFT_WIDTH - 60, 170);
-    //    lv_obj_align(line_chart, LV_ALIGN_BOTTOM_MID, 10, -5);
-    //    lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
-    //    lv_obj_set_style_bg_opa(line_chart, LV_OPA_TRANSP, 0);
-    //    lv_obj_set_style_border_opa(line_chart, LV_OPA_TRANSP, 0);
-    //    lv_obj_clear_flag(line_chart, LV_OBJ_FLAG_CLICKABLE);
-    //    lv_obj_set_style_shadow_opa(line_chart, LV_OPA_TRANSP, 0);
-    //}
-    //if (line_chart && lv_obj_is_valid(line_chart)) {
-    //    lv_chart_set_type(line_chart, LV_CHART_TYPE_SCATTER);
-    //    zero_line_ser = lv_chart_add_series(line_chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
-    //}
-    //if (line_chart && lv_obj_is_valid(line_chart) && lv_obj_has_class(line_chart, &lv_chart_class)) {
-    //lv_chart_set_value_by_id2(line_chart, zero_line_ser, 0, 0, 0); // X_MIN: Minimale X-Position
-    //lv_chart_set_value_by_id2(line_chart, zero_line_ser, 1, X_MAX, 0); // X_MAX: Maximale X-Position
-    //lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
-    //lv_chart_set_range(line_chart, LV_CHART_AXIS_PRIMARY_X, 0, recipe.temperatures.size());
-    //}
-    initStyles();
+    
+    if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
+    initAxisStyle();
+
     // Wenden Sie den Stil auf das Chart an
-    lv_obj_add_style(chart, &style, LV_PART_TICKS);
+    
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, recipe.temperatures.size(), 1, true, 20);
     int y_major_tick_count = 10; // Anzahl der Haupt-Ticks auf der Y-Achse
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 2, 2, y_major_tick_count, 1, true, 25);
+    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, y_major_tick_count, 1, true, 25);
     lv_obj_add_event_cb(chart, chart_touch_event_cb, LV_EVENT_PRESSED, nullptr);
     lv_chart_set_all_value(chart, ser, LV_CHART_POINT_NONE);
     for (auto& temp : recipe.temperatures) {
         lv_chart_set_next_value(chart, ser, temp);
     }
-    if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
+    lv_obj_add_style(chart, &style, LV_PART_TICKS); // Wenden Sie den Stil auf die Achsenbeschriftungen an
+    lv_obj_clear_flag(chart, LV_OBJ_FLAG_SCROLLABLE);
+
     lv_chart_refresh(chart);
-}
+    }
 }
 
 void clearLabels(std::vector<lv_obj_t*>& labels) {

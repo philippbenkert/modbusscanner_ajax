@@ -85,6 +85,7 @@ void drawStatus() {
 
     // Deaktivieren des Scrollbalkens für den Hauptcontainer
     lv_obj_set_scrollbar_mode(statusContainer, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_clear_flag(statusContainer, LV_OBJ_FLAG_SCROLLABLE);
 
     // Modbus-Status-Symbol
     lv_obj_t * modbusSymbol = lv_obj_create(statusContainer);
