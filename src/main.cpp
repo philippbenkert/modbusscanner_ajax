@@ -18,9 +18,9 @@
 #include "ModbusSettings.h"
 
 // Konstanten
-//#define BOARD_POWER_ON              4
-#define BOARD_485_EN                2
-//#define GPIO_PUSE                   16
+//#define BOARD_POWER_ON        4
+#define BOARD_485_EN            2
+//#define GPIO_PUSE             16
 
 // Globale Objekte
 RTC_DS3231 rtc;
@@ -33,6 +33,9 @@ extern DNSServer dnsServer;
 extern void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
 extern bool loadSTACredentials(String &ssid, String &password);
 extern void updateShouldReconnect(bool connect);
+extern void updateProgressChart(lv_obj_t* chart, const Recipe& recipe, unsigned long currentTime);
+            
+
 
 bool shouldReconnect = true; // oder false, je nach gewünschter Standardfunktionalität
 String lastSSID;
@@ -110,7 +113,8 @@ void setup() {
     loadDSTEnabled(); // Lade den DST-Zustand
     updateDSTStatus(); // Aktualisiere den Systemstatus entsprechend
     readRecipesFromFile();
-
+    loadCoolingProcessStatus();
+    
     sdCard.init();
     webServer.begin();
     modbusScanner.begin();
@@ -159,5 +163,34 @@ void setup() {
             isConnectedModbus = false;
             //updateToggleButtonLabel(btn);
         }
+    }
+
+if (chart && lv_obj_is_valid(chart)) {
+    static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
+    const unsigned long updateInterval = 10000; // 5 Minuten in Millisekunden
+
+    unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
+
+    if (currentTime1 - lastUpdateTime >= updateInterval) {
+        lastUpdateTime = currentTime1; // Aktualisieren des Zeitpunkts der letzten Aktualisierung
+    void updateRecipeDropdownState();
+    void updateSaveButtonState();
+    if (coolingProcessRunning) {
+        DateTime currentTime = rtc.now(); // Aktuelle Zeit vom RTC
+        //createProgressChart(chart, getCurrentRecipe());
+        unsigned long currentUnixTime = currentTime.unixtime(); // Extrahiert den Unix-Zeitstempel
+        updateProgressChart(chart, getCurrentRecipe(), currentUnixTime);    
+        isMenuLocked = true;
+    } else {
+        isMenuLocked = false;
+    }
+    }
+        bool cursorVisible = !coolingProcessRunning;
+        updateCursorVisibility(chart, cursorVisible);
+
+        lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+        updateSeriesColor(chart, seriesColor);
+
+        lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
     }
 }

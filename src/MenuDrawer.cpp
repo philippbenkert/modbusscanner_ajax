@@ -21,11 +21,9 @@ bool isMenuLocked = false;
 // Externe Verweise
 extern SDCardHandler sdCard;
 WebSocketHandler webSocketHandler;
-String iconPaths[] = {"/wifi.png", "/modbus.png", "/folder.png", "/scan.png"};
 
 // Implementierung von drawMenu
 std::vector<uint8_t*> imageBuffers;
-std::vector<lv_timer_t*> active_timers;
 
 MenuItem menuItems[] = {
     {"/wifi.png", wlanSettingsFunction},
@@ -35,14 +33,6 @@ MenuItem menuItems[] = {
 };
 
 lv_obj_t* iconCache[numItems] = { NULL };
-
-// Funktion zum Löschen aller Timer
-void clear_all_timers() {
-    for (auto timer : active_timers) {
-        lv_timer_del(timer);
-    }
-    active_timers.clear();
-}
 
 void setScreenBackgroundColor(lv_color_t color) {
     static lv_style_t style_bg; // Stellen Sie sicher, dass der Stil statisch oder global ist
@@ -80,7 +70,7 @@ void drawMenu() {
         if (!iconCache[i]) {
             iconCache[i] = lv_img_create(btn);
             lv_img_set_src(iconCache[i], String("S:" + String(item.iconPath)).c_str());
-            lv_obj_center(iconCache[i]); // Zentrieren des Icons im Button
+            lv_obj_align(iconCache[i], LV_ALIGN_CENTER, 0, 5);
 
         }
 
@@ -97,10 +87,6 @@ void drawMenu() {
         // Rufen Sie die spezifische Funktion für den Button auf
         isMenuLocked = true;
         menuItems[clickedIndex].action(e);
-
-        // Sperre das Menü und setze einen Timer, um es zu entsperren
-        
-        
     }
 }, LV_EVENT_CLICKED, (void*)i);
     }
@@ -154,7 +140,6 @@ void setupContentContainer() {
     if (content_container && lv_obj_is_valid(content_container)) {
         lv_obj_t * child;
         uint32_t i = 0;
-        clear_all_timers();
         while ((child = lv_obj_get_child(content_container, i)) != NULL) {
             if (lv_obj_is_valid(child)) {
                 // Entferne alle Event-Callbacks, die dem Kind zugeordnet sind

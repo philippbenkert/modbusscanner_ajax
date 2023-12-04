@@ -3,7 +3,7 @@
 
 #include <SD.h>
 #include <SPI.h>
-#include <SQLite3.h>
+#include <ulog_sqlite.h>
 
 const uint8_t SD_MISO = GPIO_NUM_38;
 const uint8_t SD_MOSI = GPIO_NUM_40;
@@ -12,18 +12,23 @@ const uint8_t SD_CS = GPIO_NUM_41;
 
 class SDCardHandler {
 private:
+    static String dbPath; // Pfad zur Datenbank
     bool _isInitialized;
     SPIClass spi;
-    sqlite3* db;
+    dblog_write_context wctx;
+    dblog_read_context rctx;
+    static std::string dbPathGlobal;
+
 public:
     SDCardHandler();
-    bool mkdir(const char* path);
-    bool init();
-    File open(const char* path, const char* mode);
-    bool isInitialized() const { return _isInitialized; }
-    // SQLite-Operationen
-    bool openDatabase(const char* dbPath);
-    bool executeSQL(const char* sql);
-    // ... Weitere SQLite-bezogene Methoden ...
     ~SDCardHandler();
+    bool init();
+    bool mkdir(const char* path);
+    File open(const char* path, const char* mode);
+    bool openDatabase(const char* dbPath);
+    bool logData(const char* data);
+    static int32_t readData(dblog_write_context *ctx, void *buf, uint32_t pos, size_t len);
+    static int32_t writeData(dblog_write_context *ctx, void *buf, uint32_t pos, size_t len);
+    static void setDbPath(const std::string& path);
+
 };

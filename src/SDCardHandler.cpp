@@ -1,17 +1,27 @@
 #include "SDCardHandler.h"
 
-SDCardHandler::SDCardHandler() : _isInitialized(false), spi(HSPI), db(nullptr) {
-}
+
+
+SDCardHandler::SDCardHandler() : _isInitialized(false), spi(HSPI), wctx({0}), rctx({0}) {}
+
+std::string SDCardHandler::dbPathGlobal;
 
 bool SDCardHandler::init() {
     
     spi.begin(SD_SCLK, SD_MISO, SD_MOSI, SD_CS);  // Initialisieren Sie SPI mit Ihren Pins
+    Serial.println("Initialisiere SD-Karte.");
     if (!SD.begin(SD_CS, spi)) {
+        Serial.println("Fehler: SD-Karte konnte nicht initialisiert werden.");
         _isInitialized = false;
         return false;
     }
+    Serial.println("SD-Karte erfolgreich initialisiert.");
     _isInitialized = true;
     return true;
+}
+
+void SDCardHandler::setDbPath(const std::string& path) {
+    dbPathGlobal = path;
 }
 
 bool SDCardHandler::mkdir(const char* path) {
@@ -25,33 +35,127 @@ bool SDCardHandler::mkdir(const char* path) {
     return false;
 }
 
-
 File SDCardHandler::open(const char* path, const char* mode) {
-    File file = SD.open(path, mode);
-    if (file) {
-    } else {
-    }
-    return file;
+    return SD.open(path, mode);
 }
+
 
 bool SDCardHandler::openDatabase(const char* dbPath) {
-    if (sqlite3_open(dbPath, &db) != SQLITE_OK) {
+    Serial.println("Öffnen der Datenbank gestartet.");
+
+    dbPathGlobal = dbPath;
+    Serial.print("Datenbankpfad gesetzt: ");
+    Serial.println(dbPathGlobal.c_str());
+
+    wctx.buf = new byte[4096];
+    wctx.page_size_exp = 9;
+
+    wctx.read_fn = &SDCardHandler::readData;
+    wctx.write_fn = &SDCardHandler::writeData;
+    wctx.flush_fn = [](struct dblog_write_context *ctx) -> int { return 0; };
+
+    Serial.println("Initialisiere Datenbankschreibkontext.");
+    if (dblog_write_init(&wctx) != DBLOG_RES_OK) {
+        Serial.println("Fehler bei der Initialisierung des Schreibkontexts.");
+        delete[] wctx.buf;
         return false;
     }
+
+    rctx.buf = new byte[4096];
+    rctx.page_size_exp = wctx.page_size_exp;
+    rctx.read_fn = reinterpret_cast<int32_t(*)(dblog_read_context *, void *, uint32_t, size_t)>(wctx.read_fn);
+
+    Serial.println("Initialisiere Datenbanklesekontext.");
+    if (dblog_read_init(&rctx) != DBLOG_RES_OK) {
+        Serial.println("Fehler bei der Initialisierung des Lesekontexts.");
+        delete[] rctx.buf;
+        return false;
+    }
+
+    Serial.println("Datenbank erfolgreich geöffnet.");
     return true;
 }
 
-bool SDCardHandler::executeSQL(const char* sql) {
-    char* errMsg;
-    if (sqlite3_exec(db, sql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        sqlite3_free(errMsg);
+bool SDCardHandler::logData(const char* data) {
+    Serial.println("Beginne logData-Funktion");
+
+    const void* values[1] = {data};
+    uint8_t types[1] = {DBLOG_TYPE_TEXT};
+    uint16_t lengths[1] = {static_cast<uint16_t>(strlen(data))};
+
+    Serial.print("Einzufügende Daten: ");
+    Serial.println(data);
+
+    int res = dblog_append_row_with_values(&wctx, types, values, lengths);
+    if (res != DBLOG_RES_OK) {
+        Serial.print("Fehler beim Einfügen in die Datenbank. Fehlercode: ");
+        Serial.println(res);
         return false;
     }
+
+    Serial.println("Daten erfolgreich in die Datenbank eingefügt");
+
+    res = dblog_flush(&wctx);
+    if (res != DBLOG_RES_OK) {
+        Serial.print("Fehler beim Spülen der Datenbank. Fehlercode: ");
+        Serial.println(res);
+        return false;
+    }
+
+    Serial.println("Datenbank erfolgreich gespült");
     return true;
 }
+
 
 SDCardHandler::~SDCardHandler() {
-    if (db) {
-        sqlite3_close(db);
+    dblog_finalize(&wctx);
+    delete[] wctx.buf;
+    delete[] rctx.buf;
+}
+
+int32_t SDCardHandler::readData(dblog_write_context *ctx, void *buf, uint32_t pos, size_t len) {
+    Serial.println("Lesevorgang gestartet.");
+
+    File file = SD.open(dbPathGlobal.c_str(), FILE_READ);
+    if (!file) {
+        Serial.println("Fehler beim Öffnen der Datei zum Lesen.");
+        return -1;
     }
+
+    file.seek(pos);
+    int32_t bytesRead = file.read(reinterpret_cast<byte*>(buf), len);
+    file.close();
+
+    Serial.println("Lesevorgang abgeschlossen.");
+    return bytesRead;
+}
+
+int32_t SDCardHandler::writeData(dblog_write_context *ctx, void *buf, uint32_t pos, size_t len) {
+    Serial.println("Schreibvorgang gestartet.");
+
+    // Überprüfen Sie, ob die Datei existiert. Wenn nicht, erstellen Sie sie.
+    if (!SD.exists(dbPathGlobal.c_str())) {
+        File file = SD.open(dbPathGlobal.c_str(), FILE_WRITE);
+        if (file) {
+            Serial.println("Datei erstellt.");
+            file.close();
+        } else {
+            Serial.println("Fehler beim Erstellen der Datei.");
+            return -1;
+        }
+    }
+
+    // Versuchen Sie nun, die Datei zum Schreiben zu öffnen.
+    File file = SD.open(dbPathGlobal.c_str(), FILE_WRITE);
+    if (!file) {
+        Serial.println("Fehler beim Öffnen der Datei zum Schreiben.");
+        return -1;
+    }
+
+    file.seek(pos);
+    int32_t bytesWritten = file.write(reinterpret_cast<const byte*>(buf), len);
+    file.close();
+
+    Serial.println("Schreibvorgang abgeschlossen.");
+    return bytesWritten;
 }

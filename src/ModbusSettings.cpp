@@ -135,7 +135,7 @@ void modbusSettingsFunction(lv_event_t * e) {
 
         // Label für Geräte
         lv_obj_t * label_device = lv_label_create(content_container);
-        lv_label_set_text(label_device, "Geraet");
+        lv_label_set_text(label_device, "Regler");
         lv_obj_align(label_device, LV_ALIGN_TOP_LEFT, 0, 10);
 
         // Dropdown für Geräte

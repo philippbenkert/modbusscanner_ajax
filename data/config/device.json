@@ -21,10 +21,10 @@
         "sollMaximumReg": 19
     },
     {
-        "geraetName": "Danfoss",
-        "istTemperaturReg": 200,
-        "sollTemperaturReg": 201,
-        "sollMinimumReg": 202,
-        "sollMaximumReg": 203
+        "geraetName": "Danfoss AK-CC 250/350/450",
+        "istTemperaturReg": 2532,
+        "sollTemperaturReg": 100,
+        "sollMinimumReg": 103,
+        "sollMaximumReg": 102
     }
 ]

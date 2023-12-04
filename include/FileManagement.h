@@ -11,8 +11,10 @@ extern std::vector<Recipe> recipes;
 extern int selectedRecipeIndex;
 extern lv_obj_t* chart;
 extern lv_chart_series_t* ser;
-extern lv_obj_t* line_chart;
-extern lv_chart_series_t* zero_line_ser;
+extern lv_chart_series_t* progress_ser;
+extern unsigned long savedEndTime;
+extern bool coolingProcessRunning;
+extern unsigned long startCoolingTime;
 
 void fileManagementFunction(lv_event_t *e);
 void readRecipesFromFile();
@@ -21,4 +23,11 @@ void updateChartBasedOnRecipe(const Recipe& recipe);
 void clearLabels(std::vector<lv_obj_t*>& labels);
 void createRecipeDropdown(lv_obj_t* parent);
 void createSaveButton(lv_obj_t * parent);
+void createToggleCoolingButton(lv_obj_t * parent);
+void loadCoolingProcessStatus();
+void updateToggleCoolingButtonText();
+void displayEndTime(unsigned long endTime);
+void updateRecipeDropdownState();
+void updateSaveButtonState();
+
 #endif

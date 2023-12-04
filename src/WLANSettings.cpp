@@ -20,7 +20,7 @@ const int maxWifiConnectAttempts = 3; // Maximale Anzahl von Verbindungsversuche
 String actualPassword;
 bool isConnected = false;
 extern bool shouldReconnect;
-lv_obj_t* popup = nullptr; 
+lv_obj_t* popup = nullptr;
 void showAPMode(lv_obj_t * parent);
 void saveCredentials(const char* ssid, const char* password);
 void textarea_event_cb(lv_event_t * e);
@@ -148,7 +148,7 @@ void connect_btn_event_cb(lv_event_t * e) {
 
         // Popup anzeigen
         popup = showConnectingPopup();
-
+        delay(100);
         if (strlen(ssid) > 0 && strlen(password) > 0) {
             saveCredentials(ssid, password);
             connectToWifi(ssid, password, popup);
@@ -174,11 +174,13 @@ lv_obj_t* showConnectingPopup() {
     Serial.println("Popup wird erstellt");
     // Erstellen eines modales Hintergrundobjekts
     lv_obj_t * modal_bg = lv_obj_create(lv_scr_act());
+    lv_obj_move_foreground(modal_bg);
     lv_obj_set_size(modal_bg, LV_PCT(100), LV_PCT(100));
     lv_obj_add_style(modal_bg, &style_bg_rounded, 0); // Angenommen, style_bg_rounded ist bereits definiert
 
     // Erstellen des Popup-Fensters
     lv_obj_t * popup = lv_obj_create(modal_bg);
+    lv_obj_move_foreground(popup);
     lv_obj_set_size(popup, 200, 100);
     lv_obj_center(popup);
     lv_obj_add_style(popup, &style_bg_rounded, 0); // Wieder, style_bg_rounded ist bereits definiert

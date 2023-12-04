@@ -3,6 +3,7 @@
 #include "SDCardHandler.h"
 #include "lvgl.h"  // LVGL-Bibliothek einbinden
 #include "MenuDrawer.h"
+#include "FileManagement.h"
 
 #define TFT_WHITE 0xFFFF
 #define TFT_BLACK 0x0000
@@ -154,9 +155,9 @@ static void my_lvgl_log_func(const char* log)
 void LGFX::lvgl_init()
 {
     lv_init();
+    init_lvgl_fs();
     lv_log_register_print_cb(my_lvgl_log_func);
     static lv_disp_draw_buf_t disp_buf;
-    init_lvgl_fs();
 // Puffer für den gesamten Bildschirm im PSRAM allokieren
     static lv_color_t *buf = (lv_color_t *)ps_malloc(TFT_WIDTH * TFT_HEIGHT * sizeof(lv_color_t)*2);
     static lv_color_t *buf1 = (lv_color_t *)ps_malloc(TFT_WIDTH * TFT_HEIGHT * sizeof(lv_color_t)*2);
@@ -181,15 +182,23 @@ void LGFX::lvgl_init()
     activeButtonIndex = 0;
     updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
     drawStatus();
+    
+    
     // Rufen Sie wlanSettingsFunction auf, um den Inhalt beim Booten zu laden
     lv_event_t tempEvent;
     lv_obj_t *tempObj = lv_obj_create(lv_scr_act()); // Erstellen eines temporären LVGL-Objekts
     tempEvent.target = tempObj; // Setzen des Zielobjekts für das Event
     tempEvent.current_target = tempObj; // Setzen des aktuellen Zielobjekts
     tempEvent.code = LV_EVENT_CLICKED; // Setzen eines Event-Codes, z.B. LV_EVENT_CLICKED
-
-    wlanSettingsFunction(&tempEvent); // Aufrufen der Funktion
-
+    if (coolingProcessRunning == true) {
+        fileManagementFunction(&tempEvent); // Aufrufen der Funktion
+        activeButtonIndex = 2;
+        updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
+    } else {
+        wlanSettingsFunction(&tempEvent); // Aufrufen der Funktion
+        activeButtonIndex = 0;
+        updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
+    }
     lv_obj_del(tempObj); // Löschen des temporären LVGL-Objekts
 }
 

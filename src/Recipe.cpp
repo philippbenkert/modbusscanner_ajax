@@ -3,6 +3,7 @@
 #include "SDCardHandler.h" // If needed for file operations
 #include "FileManagement.h"
 #include "WLANSettings.h"
+#include "DateTimeHandler.h"
 
 static lv_chart_cursor_t* cursor = nullptr; // Globale oder statische Variable für den Cursor
 const int Y_AXIS_PADDING = 2;
@@ -14,6 +15,41 @@ lv_obj_t* cursor_info_label;
 extern lv_obj_t* recipe_dropdown;
 static lv_style_t style;
 static lv_style_t axis_style; // Stil für Achsenbeschriftungen
+extern bool coolingProcessRunning;
+
+extern std::vector<Recipe> recipes;
+
+// Funktion, um den Fortschritt zu berechnen
+int calculateCoolingProgress(unsigned long currentTime, unsigned long startCoolingTime, const Recipe& recipe) {
+    unsigned long elapsedSeconds = currentTime - startCoolingTime;
+    int daysProgressed = elapsedSeconds / 86400; // 86400 Sekunden pro Tag
+
+    // Begrenze die Anzahl der Tage auf die Länge des Rezepts
+    if (daysProgressed >= recipe.temperatures.size()) {
+        daysProgressed = recipe.temperatures.size() - 1;
+    }
+
+    return daysProgressed;
+}
+
+// Funktion, um den Fortschrittschart zu aktualisieren
+void updateProgressChart(lv_obj_t* chart, const Recipe& recipe, unsigned long currentTime) {
+    if (!chart || !lv_obj_is_valid(chart)) return;
+    if (!progress_ser) {
+        progress_ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+    }
+
+    int daysProgressed = calculateCoolingProgress(currentTime, startCoolingTime, recipe);
+
+    lv_chart_set_point_count(chart, recipe.temperatures.size());
+
+    // Zeichne den blauen Graphen entlang der Sollwertkurve bis zum aktuellen Fortschritt
+    for (size_t i = 0; i < recipe.temperatures.size(); i++) {
+        int value = i <= daysProgressed ? recipe.temperatures[i] : LV_CHART_POINT_NONE;
+        lv_chart_set_next_value(chart, progress_ser, value);
+    }
+}
+
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
     lv_obj_t* label = lv_label_create(parent);
@@ -36,7 +72,7 @@ void readRecipesFromFile() {
         return;
     }
     String line;
-    line.reserve(256); // Reserviere genug Speicher für die Zeile, um häufige Allokationen zu vermeiden
+    line.reserve(128); // Reserviere genug Speicher für die Zeile, um häufige Allokationen zu vermeiden
     file.readStringUntil('\n'); // Überspringe die Kopfzeile
     while (file.available()) {
         line = file.readStringUntil('\n');
@@ -82,10 +118,18 @@ void updateCursorInfo(lv_obj_t* chart, const Recipe& recipe, uint16_t point_idx)
     lv_obj_clear_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN); // Zeige das Label an
 }
 
+void updateSeriesColor(lv_obj_t* chart, lv_color_t color) {
+    if (ser && chart && lv_obj_is_valid(chart)) {
+        lv_chart_set_series_color(chart, ser, color);
+    }
+}
+
 void chart_touch_event_cb(lv_event_t* e) {
+    if (coolingProcessRunning) {
+        return;
+    }
     chart = lv_event_get_target(e);
     if (!chart || !lv_obj_is_valid(chart)) {
-        Serial.print("Chart nicht vorhanden!");
         return; // Beenden, wenn das Chart-Objekt ungültig ist
     }
     if (!cursor) {
@@ -106,6 +150,20 @@ void chart_touch_event_cb(lv_event_t* e) {
     if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
     lv_chart_refresh(chart);
 }
+}
+
+void updateCursorVisibility(lv_obj_t* chart, bool visible) {
+    if (cursor && lv_obj_is_valid((lv_obj_t*)cursor)) {
+        if (visible) {
+            // Wenn der Cursor sichtbar sein soll, fügen Sie ihn hinzu und aktivieren Sie den Event-Callback
+            lv_obj_clear_flag((lv_obj_t*)cursor, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_event_cb(chart, chart_touch_event_cb, LV_EVENT_PRESSED, nullptr); // Reaktiviert den Callback
+        } else {
+            // Wenn der Cursor nicht sichtbar sein soll, verstecken Sie ihn und deaktivieren Sie den Event-Callback
+            lv_obj_add_flag((lv_obj_t*)cursor, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_remove_event_cb(chart, chart_touch_event_cb); // Entfernt den Callback
+        }
+    }
 }
 
 void clearCursor() {
@@ -137,17 +195,8 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
     return chart;
 }
 
-void updateChartBasedOnRecipe(const Recipe& recipe) {
-    clearContentArea();
-    lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
-
-    createRecipeDropdown(content_container);
-    createSaveButton(content_container); // Button hinzufügen
-    int X_MAX = recipe.temperatures.size(); // Maximale X-Position basierend auf der Anzahl der Temperaturen
-    int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
-    int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
-    if (!chart || !lv_obj_is_valid(chart)) {
-        chart = lv_chart_create(content_container);
+void create_chart(){
+    chart = lv_chart_create(content_container);
         lv_obj_add_style(chart, &style_no_border, 0);
         lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
         lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -10);
@@ -161,6 +210,18 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
         }
         if (!ser) return;
+}
+void updateChartBasedOnRecipe(const Recipe& recipe) {
+    clearContentArea();
+    lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
+    createRecipeDropdown(content_container);
+    createSaveButton(content_container); // Button hinzufügen
+    createToggleCoolingButton(content_container);
+    int X_MAX = recipe.temperatures.size(); // Maximale X-Position basierend auf der Anzahl der Temperaturen
+    int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
+    int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
+    if (!chart || !lv_obj_is_valid(chart)) {
+        create_chart();
     }   
     if (chart && lv_obj_is_valid(chart) && lv_obj_has_class(chart, &lv_chart_class)) {
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
@@ -173,12 +234,9 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         cursor = lv_chart_add_cursor(chart, lv_palette_main(LV_PALETTE_BLUE), LV_DIR_VER);
         }
     }
-    
     if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
     initAxisStyle();
-
     // Wenden Sie den Stil auf das Chart an
-    
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, recipe.temperatures.size(), 1, true, 20);
     int y_major_tick_count = 10; // Anzahl der Haupt-Ticks auf der Y-Achse
     lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, y_major_tick_count, 1, true, 25);
@@ -189,9 +247,17 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     }
     lv_obj_add_style(chart, &style, LV_PART_TICKS); // Wenden Sie den Stil auf die Achsenbeschriftungen an
     lv_obj_clear_flag(chart, LV_OBJ_FLAG_SCROLLABLE);
-
     lv_chart_refresh(chart);
     }
+
+    //DateTime now = rtc.now();
+    if (coolingProcessRunning) {
+        displayEndTime(savedEndTime);
+    } else {
+        coolingProcessRunning = false;
+        displayEndTime(savedEndTime);
+    }
+    updateToggleCoolingButtonText();
 }
 
 void clearLabels(std::vector<lv_obj_t*>& labels) {
