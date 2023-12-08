@@ -8,6 +8,7 @@
 #include "DateTimeHandler.h"
 #include "WLANSettings.h"
 #include <esp_heap_caps.h>
+#include <memory>
 
 extern SDCardHandler sdCard;
 extern RTC_DS3231 rtc;
@@ -35,12 +36,10 @@ int selectedRecipeIndex = 0;
 int globalEndTime;
 bool coolingProcessRunning;
 void updateToggleCoolingButtonText();
-#define BUF_SIZE 4096
-byte buf[BUF_SIZE];
 struct dblog_write_context wctx;
 unsigned long savedEndTime = 0;
 char buffer[30];
-
+char dbName[64];
 
 
 void loadCoolingProcessStatus() {
@@ -110,7 +109,10 @@ int flush_fn(struct dblog_write_context *ctx) {
 }
 
 void startCoolingProcess() {
+    Serial.println("Start Cooling Process");
+
     if (selectedRecipeIndex < 0 || selectedRecipeIndex >= recipes.size()) {
+        Serial.println("Invalid recipe index");
         return;
     }
     coolingProcessRunning = true;
@@ -118,49 +120,65 @@ void startCoolingProcess() {
     const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
     now = rtc.now();
     startTime = now.unixtime();
-    char dbName[64];
+    char ts[24];
+    snprintf(ts, sizeof(ts), "%lu", startTime);
+    dbName[64];
     snprintf(dbName, sizeof(dbName), "/setpoint_%lu.db", startTime);
     sdCard.setDbPath(dbName);
+
     // Datenbank öffnen und initialisieren
-    wctx.buf = buf;
-    wctx.col_count = 2; // Anzahl der Spalten (Zeit und Temperatur)
-    wctx.page_resv_bytes = 0;
+    std::unique_ptr<byte[]> buffer(new byte[4096]);
+    wctx.buf = buffer.get();
+    wctx.col_count = 2; // Anzahl der Spalten (Zeit als Text und Temperatur)
     wctx.page_size_exp = 12; // Seitengröße als Exponent von 2 (hier 4096)
     wctx.read_fn = SDCardHandler::readData;
     wctx.write_fn = SDCardHandler::writeData;
     wctx.flush_fn = flush_fn;
-    if (dblog_write_init(&wctx) != DBLOG_RES_OK) {
+    
+    const char *table_script_literal = "CREATE TABLE temperature_log (time TEXT, temperature REAL);";
+    const char *table_name_literal = "temperature_log";
+    char *table_script = const_cast<char*>(table_script_literal);
+    char *table_name = const_cast<char*>(table_name_literal);
+
+    if (dblog_write_init_with_script(&wctx, table_name, table_script) != DBLOG_RES_OK) {
+        Serial.println("Failed to initialize database");
         return;
     }
     int stepsPerDay = 12;
-    int stepDurationInSeconds = 2 * 60 * 60; // 2 Stunden pro Schritt in Sekunden
+    int stepDurationInSeconds = 2 * 60 * 60;
     for (size_t day = 0; day < selectedRecipe.temperatures.size() - 1; day++) {
         float startTemp = selectedRecipe.temperatures[day];
         float endTemp = selectedRecipe.temperatures[day + 1];
         float tempStep = (endTemp - startTemp) / stepsPerDay;
         for (int step = 0; step < stepsPerDay; step++) {
             float tempValue = std::round((startTemp + step * tempStep) * 10) / 10.0;
-            unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
+            int stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
+            snprintf(ts, sizeof(ts), "%d", stepTime);
             if (dblog_append_empty_row(&wctx) != DBLOG_RES_OK) {
-                Serial.println("Fehler beim Einfügen einer leeren Reihe in die Datenbank");
+                Serial.println("Error appending empty row in database");
                 break;
             }
-            if (dblog_set_col_val(&wctx, 0, DBLOG_TYPE_INT, &stepTime, sizeof(stepTime)) != DBLOG_RES_OK) {
-                Serial.println("Fehler beim Einfügen der Zeit in die Datenbank");
+            if (dblog_set_col_val(&wctx, 0, DBLOG_TYPE_TEXT, ts, strlen(ts)) != DBLOG_RES_OK) {
+                Serial.println("Error inserting time into database");
                 break;
             }
             if (dblog_set_col_val(&wctx, 1, DBLOG_TYPE_REAL, &tempValue, sizeof(tempValue)) != DBLOG_RES_OK) {
-                Serial.println("Fehler beim Einfügen der Temperatur in die Datenbank");
+                Serial.println("Error inserting temperature into database");
                 break;
             }
+            Serial.print("Inserting temperature value: ");
+            Serial.println(tempValue);
+            Serial.print("At time: ");
+            Serial.println(ts);
         }
     }
-    // Datenbank abschließen
     if (dblog_finalize(&wctx) != DBLOG_RES_OK) {
-        Serial.println("Fehler beim Finalisieren der Datenbank.");
+        Serial.println("Error finalizing database.");
     }
+    Serial.println("Database finalized successfully");
+
     // Endzeit berechnen und anzeigen
-    unsigned long processDuration = (selectedRecipe.temperatures.size() - 1) * 24 * 60 * 60; // Gesamtdauer in Sekunden
+    unsigned long processDuration = (selectedRecipe.temperatures.size() - 1) * 24 * 60 * 60;
     unsigned long endTime = startTime + processDuration;
     displayEndTime(endTime);
     // Status in den Festspeicher speichern
@@ -170,7 +188,9 @@ void startCoolingProcess() {
     preferences.putString("currentDb", dbName);
     preferences.putULong("starttime1", startTime);
     preferences.end();
+    Serial.println("End Cooling Process");
 }
+
 
 void stopCoolingProcess() {
     coolingProcessRunning = false;

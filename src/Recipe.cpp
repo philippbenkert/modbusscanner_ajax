@@ -4,7 +4,11 @@
 #include "FileManagement.h"
 #include "WLANSettings.h"
 #include "DateTimeHandler.h"
+#include <Preferences.h>
+#include "ulog_sqlite.h"   // Bibliothek für die Datenbanklogik
+#include <memory>
 
+extern SDCardHandler sdCard;
 static lv_chart_cursor_t* cursor = nullptr; // Globale oder statische Variable für den Cursor
 const int Y_AXIS_PADDING = 2;
 const int Y_LABEL_OFFSET = 30;
@@ -16,8 +20,15 @@ extern lv_obj_t* recipe_dropdown;
 static lv_style_t style;
 static lv_style_t axis_style; // Stil für Achsenbeschriftungen
 extern bool coolingProcessRunning;
-
+extern RTC_DS3231 rtc;
 extern std::vector<Recipe> recipes;
+extern Preferences preferences;
+
+// Struktur zur Speicherung der Zeit-/Temperaturdaten
+struct TimeTempPair {
+    unsigned long time;
+    float temperature;
+};
 
 // Funktion, um den Fortschritt zu berechnen
 int calculateCoolingProgress(unsigned long currentTime, unsigned long startCoolingTime, const Recipe& recipe) {
@@ -32,24 +43,102 @@ int calculateCoolingProgress(unsigned long currentTime, unsigned long startCooli
     return daysProgressed;
 }
 
-// Funktion, um den Fortschrittschart zu aktualisieren
-void updateProgressChart(lv_obj_t* chart, const Recipe& recipe, unsigned long currentTime) {
-    if (!chart || !lv_obj_is_valid(chart)) return;
-    if (!progress_ser) {
-        progress_ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_BLUE), LV_CHART_AXIS_PRIMARY_Y);
+#include <memory>
+
+std::vector<TimeTempPair> readDatabaseData(const char* dbName) {
+    std::vector<TimeTempPair> data;
+
+    dblog_read_context rctx;
+    rctx.page_size_exp = 12;
+
+    // Verwenden von std::unique_ptr für automatische Speicherverwaltung
+    std::unique_ptr<byte[]> buffer(new byte[4096]);
+    rctx.buf = buffer.get();
+    Serial.println("Lesen der Datenbank gestartet");
+
+    rctx.read_fn = reinterpret_cast<int32_t(*)(dblog_read_context *, void *, uint32_t, size_t)>(SDCardHandler::readData);
+
+    // Öffnen der Datenbank
+    if (!sdCard.openDatabase(dbName)) {
+        Serial.println("Fehler beim Öffnen der Datenbank.");
+        return data;
     }
 
-    int daysProgressed = calculateCoolingProgress(currentTime, startCoolingTime, recipe);
+    // Initialisieren des Lesekontexts
+    if (dblog_read_init(&rctx) != DBLOG_RES_OK) {
+        Serial.println("Fehler beim Initialisieren des Lesekontexts.");
+        return data;
+    }
+    Serial.println("Lesen der Daten aus der Datenbank");
 
-    lv_chart_set_point_count(chart, recipe.temperatures.size());
+    // Lesen der Daten aus der Datenbank
+    while (dblog_read_next_row(&rctx) == DBLOG_RES_OK) {
+        TimeTempPair pair;
+        uint32_t colType;
 
-    // Zeichne den blauen Graphen entlang der Sollwertkurve bis zum aktuellen Fortschritt
-    for (size_t i = 0; i < recipe.temperatures.size(); i++) {
-        int value = i <= daysProgressed ? recipe.temperatures[i] : LV_CHART_POINT_NONE;
-        lv_chart_set_next_value(chart, progress_ser, value);
+        const void* timeData = dblog_read_col_val(&rctx, 0, &colType);
+        if (colType != DBLOG_TYPE_TEXT || timeData == nullptr) {
+            Serial.print("Fehler beim Lesen der Zeit. Typ: ");
+            Serial.println(colType);
+            continue;
+        }
+
+        const void* tempData = dblog_read_col_val(&rctx, 1, &colType);
+        if (colType != DBLOG_TYPE_REAL || tempData == nullptr) {
+            Serial.print("Fehler beim Lesen der Temperatur. Typ: ");
+            Serial.println(colType);
+            continue;
+        }
+
+        // Konvertieren Sie den gelesenen String-Zeitstempel in einen numerischen Wert, falls notwendig
+        pair.time = strtoul(reinterpret_cast<const char*>(timeData), nullptr, 10);
+        //pair.time = reinterpret_cast<const char*>(timeData); // Hier wird die Zeit als String gespeichert
+        pair.temperature = *(reinterpret_cast<const float*>(tempData));
+        
+        data.push_back(pair);
+    }
+
+    // Der Speicher, auf den buffer zeigt, wird automatisch freigegeben
+    return data;
+}
+
+
+// Funktion, um den Fortschrittschart zu aktualisieren
+void updateProgressChart(lv_obj_t* chart, const std::vector<TimeTempPair>& data, unsigned long currentTime) {
+    if (!chart || !lv_obj_is_valid(chart) || !progress_ser) return;
+
+    size_t index = 0;
+    for (; index < data.size() && data[index].time <= currentTime; ++index);
+Serial.println("Setze Chart.");
+    lv_chart_set_point_count(chart, index);
+    for (size_t i = 0; i < index; ++i) {
+        lv_chart_set_next_value(chart, progress_ser, data[i].temperature);
     }
 }
 
+void updateProgress() {
+    Serial.println("Updatevorgang gestartet.");
+    // Lesen des aktuellen Datenbanknamens aus den Preferences
+    preferences.begin("process", true);
+    String currentDb = preferences.getString("currentDb", "");
+    Serial.println(currentDb);
+    preferences.end();
+
+    if (currentDb.isEmpty()) return;
+
+        Serial.println("Lesen gestartet.");
+
+    // Lesen der Datenbank-Daten
+    std::vector<TimeTempPair> dbData = readDatabaseData(currentDb.c_str());
+        Serial.println("Lesen abgeschlossen.");
+    // Aktuelle Zeit ermitteln
+    unsigned long currentTime = rtc.now().unixtime();
+
+    // Aktualisieren des Fortschrittscharts
+    Serial.println("UpdateChart gestartet.");
+    updateProgressChart(chart, dbData, currentTime);
+    
+}
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
     lv_obj_t* label = lv_label_create(parent);

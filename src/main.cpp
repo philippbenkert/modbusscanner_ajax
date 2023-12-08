@@ -28,19 +28,17 @@ LGFX display;
 SDCardHandler sdCard;
 WebServer webServer;
 OTAUpdates otaUpdates;
+extern Preferences preferences;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
 extern void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
 extern bool loadSTACredentials(String &ssid, String &password);
 extern void updateShouldReconnect(bool connect);
 extern void updateProgressChart(lv_obj_t* chart, const Recipe& recipe, unsigned long currentTime);
-            
-
-
+extern void updateProgress();
 bool shouldReconnect = true; // oder false, je nach gewünschter Standardfunktionalität
 String lastSSID;
 String lastPassword;
-
 DateTime getRTCDateTime() {
     return rtc.now();
 }
@@ -176,15 +174,12 @@ if (chart && lv_obj_is_valid(chart)) {
     void updateRecipeDropdownState();
     void updateSaveButtonState();
     if (coolingProcessRunning) {
-        DateTime currentTime = rtc.now(); // Aktuelle Zeit vom RTC
-        //createProgressChart(chart, getCurrentRecipe());
-        unsigned long currentUnixTime = currentTime.unixtime(); // Extrahiert den Unix-Zeitstempel
-        updateProgressChart(chart, getCurrentRecipe(), currentUnixTime);    
+        updateProgress();
         isMenuLocked = true;
     } else {
         isMenuLocked = false;
     }
-    }
+    
         bool cursorVisible = !coolingProcessRunning;
         updateCursorVisibility(chart, cursorVisible);
 
@@ -194,3 +189,4 @@ if (chart && lv_obj_is_valid(chart)) {
         lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
     }
 }
+    }

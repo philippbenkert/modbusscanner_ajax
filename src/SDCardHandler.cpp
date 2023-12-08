@@ -1,4 +1,5 @@
 #include "SDCardHandler.h"
+#include <memory>
 
 
 
@@ -47,7 +48,9 @@ bool SDCardHandler::openDatabase(const char* dbPath) {
     Serial.print("Datenbankpfad gesetzt: ");
     Serial.println(dbPathGlobal.c_str());
 
-    wctx.buf = new byte[4096];
+    // Verwenden von std::unique_ptr für automatische Speicherverwaltung
+    std::unique_ptr<byte[]> writeBuffer(new byte[4096]);
+    wctx.buf = writeBuffer.get();
     wctx.page_size_exp = 9;
 
     wctx.read_fn = &SDCardHandler::readData;
@@ -57,18 +60,17 @@ bool SDCardHandler::openDatabase(const char* dbPath) {
     Serial.println("Initialisiere Datenbankschreibkontext.");
     if (dblog_write_init(&wctx) != DBLOG_RES_OK) {
         Serial.println("Fehler bei der Initialisierung des Schreibkontexts.");
-        delete[] wctx.buf;
         return false;
     }
 
-    rctx.buf = new byte[4096];
+    std::unique_ptr<byte[]> readBuffer(new byte[4096]);
+    rctx.buf = readBuffer.get();
     rctx.page_size_exp = wctx.page_size_exp;
     rctx.read_fn = reinterpret_cast<int32_t(*)(dblog_read_context *, void *, uint32_t, size_t)>(wctx.read_fn);
 
     Serial.println("Initialisiere Datenbanklesekontext.");
     if (dblog_read_init(&rctx) != DBLOG_RES_OK) {
         Serial.println("Fehler bei der Initialisierung des Lesekontexts.");
-        delete[] rctx.buf;
         return false;
     }
 
