@@ -29,7 +29,7 @@ void clear_all_timers();
 // Event-Handler-Funktionen für das Menü
 void wlanSettingsFunction(lv_event_t * e);
 void modbusSettingsFunction(lv_event_t * e);
-void fileManagementFunction(lv_event_t * e);
+void ProcessFunction(lv_event_t * e);
 void scanFunctionsFunction(lv_event_t * e);
 extern lv_obj_t *content_container;
 extern bool isMenuLocked;

@@ -9,13 +9,14 @@
 #include "SDCardHandler.h"
 #include <LovyanGFX.hpp>
 #include <DNSServer.h>
-#include "FileManagement.h"
+#include "Process.h"
 #include "WLANSettings.h"
 #include <Wire.h>
 #include "RTCControl.h"
 #include "DateTimeHandler.h"
 #include "OTAUpdates.h"
 #include "ModbusSettings.h"
+#include "CommonDefinitions.h"
 
 // Konstanten
 //#define BOARD_POWER_ON        4
@@ -31,6 +32,9 @@ OTAUpdates otaUpdates;
 extern Preferences preferences;
 extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
+extern lv_obj_t* recipe_dropdown;
+std::vector<TimeTempPair> dbData;
+
 extern void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
 extern bool loadSTACredentials(String &ssid, String &password);
 extern void updateShouldReconnect(bool connect);
@@ -108,37 +112,25 @@ void wifiTask(void *parameter) {
     }
 
         if (chart && lv_obj_is_valid(chart)) {
-    static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
-    const unsigned long updateInterval = 10000; // 5 Minuten in Millisekunden
+            static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
+            const unsigned long updateInterval = 10000; // 5 Minuten in Millisekunden
+            unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
+            updateCursorVisibility(chart, !coolingProcessRunning);
 
-    unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
-
-    
-    updateCursorVisibility(chart, !coolingProcessRunning);
-
-    if (currentTime1 - lastUpdateTime >= updateInterval) {
+        if (currentTime1 - lastUpdateTime >= updateInterval) {
         lastUpdateTime = currentTime1; // Aktualisieren des Zeitpunkts der letzten Aktualisierung
-    void updateRecipeDropdownState();
-        if (coolingProcessRunning) {
+        void updateRecipeDropdownState();
+            if (coolingProcessRunning) {
             updateProgress();
             isMenuLocked = true;
-        } 
-    
-        
-
-        lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
-        updateSeriesColor(chart, seriesColor);
-
-        lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
-    }
+            } 
+        }
         if (coolingProcessRunning) {
             isMenuLocked = true;
         } else {
             isMenuLocked = false;
+        }       
         }
-
-        
-}
 
         delay(10); // Kurze Verzögerung
     }
@@ -191,6 +183,15 @@ void setup() {
     display.init(); 
     display.lvgl_init();
     otaUpdates.begin("savedSSID", "savedPassword");
+
+    if (coolingProcessRunning) {
+        // Verstecke das Dropdown-Menü, wenn der KühlProcess läuft
+        if (recipe_dropdown && lv_obj_is_valid(recipe_dropdown)) {
+            lv_obj_add_flag(recipe_dropdown, LV_OBJ_FLAG_HIDDEN);
+        }
+        lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+
+    }
 
     String ssid, password;
     if (loadSTACredentials(lastSSID, lastPassword)) {

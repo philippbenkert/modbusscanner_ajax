@@ -8,6 +8,8 @@ SDCardHandler::SDCardHandler() : _isInitialized(false), spi(HSPI), db(nullptr) {
 std::string SDCardHandler::dbPathGlobal;
 
 SDCardHandler::~SDCardHandler() {
+        sqlite3_finalize(insertStmt); // Bereinigen des Prepared Statements
+
     if (db != nullptr) {
         sqlite3_close(db);
     }
@@ -63,19 +65,34 @@ bool SDCardHandler::createSetpointTable(const std::string& tableName) {
     return true;
 }
 
-bool SDCardHandler::logSetpointData(const std::string& tableName, int day, float temperature) {
-    char sql[128];
-    snprintf(sql, sizeof(sql), "INSERT OR REPLACE INTO %s (Timestamp, Temperature) VALUES (%d, %f);", tableName.c_str(), day, temperature);
-
-    char* errMsg;
-    if (sqlite3_exec(db, sql, 0, 0, &errMsg) != SQLITE_OK) {
-        Serial.println("Fehler beim Einfügen der Setpoint-Daten.");
-        sqlite3_free(errMsg);
+bool SDCardHandler::prepareInsertStatement(const std::string& tableName) {
+    const char* sql = "INSERT OR REPLACE INTO ? (Day, Temperature) VALUES (?, ?);";
+    if (sqlite3_prepare_v2(db, sql, -1, &insertStmt, NULL) != SQLITE_OK) {
         return false;
     }
+    sqlite3_bind_text(insertStmt, 1, tableName.c_str(), -1, SQLITE_STATIC);
     return true;
 }
 
+bool SDCardHandler::logSetpointData(int day, float temperature) {
+    sqlite3_bind_int(insertStmt, 2, day);
+    sqlite3_bind_double(insertStmt, 3, temperature);
+
+    if (sqlite3_step(insertStmt) != SQLITE_DONE) {
+        sqlite3_reset(insertStmt);
+        return false;
+    }
+    sqlite3_reset(insertStmt);
+    return true;
+}
+
+void SDCardHandler::beginTransaction() {
+    sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
+}
+
+void SDCardHandler::endTransaction() {
+    sqlite3_exec(db, "END TRANSACTION;", NULL, NULL, NULL);
+}
 bool SDCardHandler::init() {
     spi.begin(SD_SCLK, SD_MISO, SD_MOSI, SD_CS);  // Initialisieren Sie SPI mit Ihren Pins
     Serial.println("Initialisiere SD-Karte.");
@@ -131,18 +148,6 @@ bool SDCardHandler::openDatabase(const std::string& dbPath) {
     return true;
 }
 
-bool SDCardHandler::logData(const char* timestamp, float temperature) {
-    char sql[128];
-    snprintf(sql, sizeof(sql), "INSERT INTO TemperatureLog (Timestamp, Temperature) VALUES (%s, %f);", timestamp, temperature);
-
-    char *errMsg;
-    if (sqlite3_exec(db, sql, 0, 0, &errMsg) != SQLITE_OK) {
-        Serial.println("Fehler beim Einfügen der Daten in die Datenbank.");
-        sqlite3_free(errMsg);
-        return false;
-    }
-    return true;
-}
 
     
 

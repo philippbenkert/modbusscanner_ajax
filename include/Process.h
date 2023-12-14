@@ -1,5 +1,5 @@
-#ifndef FILEMANAGEMENT_H
-#define FILEMANAGEMENT_H
+#ifndef Process_H
+#define Process_H
 
 #include "ContentDrawer.h"
 #include "lvgl.h"
@@ -16,7 +16,7 @@ extern unsigned long savedEndTime;
 extern bool coolingProcessRunning;
 extern unsigned long startCoolingTime;
 
-void fileManagementFunction(lv_event_t *e);
+void ProcessFunction(lv_event_t *e);
 void readRecipesFromFile();
 void recipe_dropdown_event_handler(lv_event_t* e);
 void updateChartBasedOnRecipe(const Recipe& recipe);

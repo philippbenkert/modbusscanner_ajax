@@ -3,7 +3,8 @@
 #include "SDCardHandler.h"
 #include "lvgl.h"  // LVGL-Bibliothek einbinden
 #include "MenuDrawer.h"
-#include "FileManagement.h"
+#include "Process.h"
+
 
 #define TFT_WHITE 0xFFFF
 #define TFT_BLACK 0x0000
@@ -191,7 +192,7 @@ void LGFX::lvgl_init()
     tempEvent.current_target = tempObj; // Setzen des aktuellen Zielobjekts
     tempEvent.code = LV_EVENT_CLICKED; // Setzen eines Event-Codes, z.B. LV_EVENT_CLICKED
     if (coolingProcessRunning == true) {
-        fileManagementFunction(&tempEvent); // Aufrufen der Funktion
+        ProcessFunction(&tempEvent); // Aufrufen der Funktion
         activeButtonIndex = 2;
         updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
     } else {

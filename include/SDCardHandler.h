@@ -16,8 +16,10 @@ private:
     bool _isInitialized;
     SPIClass spi;
     sqlite3 *db; // SQLite3-Datenbankobjekt
+    sqlite3_stmt *insertStmt; // Prepared Statement für das Einfügen
 
     static std::string dbPathGlobal;
+
 public:
     SDCardHandler();
     ~SDCardHandler();
@@ -25,15 +27,17 @@ public:
     bool mkdir(const char* path);
     File open(const char* path, const char* mode);
     bool openDatabase(const std::string& dbPath);
-    bool logData(const char* timestamp, float temperature);
     static void setDbPath(const std::string& path);
     static const std::string& getDbPath() {
         return dbPathGlobal;
     }
     bool createSetpointTable(const std::string& tableName);
-    bool logSetpointData(const std::string& tableName, int day, float temperature);
+    bool prepareInsertStatement(const std::string& tableName);
+    bool logSetpointData(int day, float temperature);
+    bool clearTable(const std::string& tableName);
+    void beginTransaction();
+    void endTransaction();
     sqlite3* getDb() const {
         return db;
     }
-    bool clearTable(const std::string& tableName);
 };

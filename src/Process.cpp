@@ -1,4 +1,4 @@
-#include "FileManagement.h"
+#include "Process.h"
 #include "TouchPanel.h"
 #include "MenuDrawer.h"
 #include "qrcodegen.h"
@@ -23,8 +23,8 @@ lv_obj_t* toggle_btn = nullptr;
 lv_obj_t* label = nullptr;
 lv_obj_t* label1 = nullptr;
 lv_obj_t* btn = nullptr;
-//lv_obj_t* end_time_label = nullptr;
-static lv_obj_t* end_time_label = nullptr;
+lv_obj_t* end_time_label = nullptr;
+//static lv_obj_t* end_time_label = nullptr;
 DateTime now;
 unsigned long startTime;
 unsigned long startCoolingTime;
@@ -76,22 +76,22 @@ void displayEndTime(unsigned long endTime) {
     // Einmalige Erstellung des Labels, falls es noch nicht existiert
     if (!end_time_label) {
         end_time_label = lv_label_create(content_container);
-        lv_obj_align(end_time_label, LV_ALIGN_OUT_BOTTOM_MID, 20, 55);
+        lv_obj_align(end_time_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 55);
     }
 
     // Textaktualisierung
-    char buffer[30];
+    char buffer[64]; // Erhöhen Sie die Größe für den zusätzlichen Text
     if (endTime > 0 && coolingProcessRunning) {
         time_t endTimeSec = endTime;
         struct tm *endTimeStruct = localtime(&endTimeSec);
-        if (strftime(buffer, sizeof(buffer), "%d.%m.%Y %H:%M:%S", endTimeStruct) == 0) {
-            lv_label_set_text(end_time_label, "Fehler bei der Zeitformatierung");
-        } else {
-            lv_label_set_text(end_time_label, buffer);
+        if (strftime(buffer, sizeof(buffer), "Vorgang endet am %d.%m.%Y %H:%M:%S", endTimeStruct) == 0) {
+            snprintf(buffer, sizeof(buffer), "Vorgang endet: Fehler bei der Zeitformatierung");
         }
     } else {
-        lv_label_set_text(end_time_label, "Nicht gestartet");
+        snprintf(buffer, sizeof(buffer), "");
     }
+
+    lv_label_set_text(end_time_label, buffer);
 }
 
 void printFreeHeap() {
@@ -128,27 +128,36 @@ void startCoolingProcess() {
         return;
     }
 
+    // Tabelle vorbereiten und Transaction starten
     sdCard.clearTable("TemperatureLog");
+    sdCard.prepareInsertStatement("TemperatureLog");
+    sdCard.beginTransaction();
 
-    int stepsPerDay = 12;
-    int stepDurationInSeconds = 2 * 60 * 60;
-    for (size_t day = 0; day < selectedRecipe.temperatures.size() - 1; day++) {
+    int stepsPerDay = 4; // 24 Stunden / 6 Stunden pro Schritt = 4 Schritte pro Tag
+    int stepDurationInSeconds = 6 * 60 * 60; // 6 Stunden in Sekunden
+    for (size_t day = 0; day < selectedRecipe.temperatures.size(); day++) {
         float startTemp = selectedRecipe.temperatures[day];
-        float endTemp = selectedRecipe.temperatures[day + 1];
-        float tempDifference = endTemp - startTemp;
-        float tempStep = tempDifference / (stepsPerDay - 1); // -1, da der letzte Schritt zum nächsten Tag gehört
-            for (int step = 0; step < stepsPerDay; step++) {
-            float tempValue = startTemp + step * tempStep;
-            //tempValue = std::round(tempValue * 10) / 10.0;
+        float endTemp = (day < selectedRecipe.temperatures.size() - 1) ? selectedRecipe.temperatures[day + 1] : startTemp;
+
+        for (int step = 0; step < stepsPerDay; step++) {
+            if (day == selectedRecipe.temperatures.size() - 1 && step > 0) {
+                break; // Am letzten Tag nur einen Sollwert setzen
+            }
+
+            float tempValue = startTemp;
+            if (day < selectedRecipe.temperatures.size() - 1) {
+                tempValue += ((endTemp - startTemp) * step / stepsPerDay);
+            }
+
             unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
-            char timestamp[24];
-            snprintf(timestamp, sizeof(timestamp), "%lu", stepTime);
-                if (!sdCard.logData(timestamp, tempValue)) {
+
+            if (!sdCard.logSetpointData(stepTime, tempValue)) {
                 Serial.println("Error logging data to database");
                 break;
-                }
             }
+        }
     }
+    sdCard.endTransaction();
 
 
     // Endzeit berechnen und anzeigen
@@ -182,7 +191,7 @@ void stopCoolingProcess() {
                     lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
                 }
             }
-            
+
     updateToggleCoolingButtonText();
 }
     
@@ -191,7 +200,7 @@ static void confirm_cooling_stop_cb(lv_event_t * e) {
     lv_obj_t* mbox = reinterpret_cast<lv_obj_t*>(lv_event_get_user_data(e));
     const char* btn_text = lv_msgbox_get_active_btn_text(mbox);
     if (strcmp(btn_text, "OK") == 0) {
-        // "OK" wurde gedrückt, stoppe den Kühlprozess
+        // "OK" wurde gedrückt, stoppe den KühlProcess
         stopCoolingProcess();
     }
     // Schließe das Popup in beiden Fällen
@@ -206,7 +215,7 @@ void updateToggleCoolingButtonText() {
     if (!label || !lv_obj_is_valid(label)) {
         return;
     }
-    // Setzen des Button-Textes basierend auf dem Kühlprozessstatus
+    // Setzen des Button-Textes basierend auf dem KühlProcessstatus
     lv_label_set_text(label, coolingProcessRunning ? "Stoppen" : "Starten");
 }
 
@@ -219,7 +228,7 @@ void toggle_cooling_btn_event_cb(lv_event_t * e) {
         coolingProcessRunning = true;
     } else {
         static const char* btns[] = {"OK", "Abbrechen", ""}; // Button-Beschriftungen
-        lv_obj_t* mbox = lv_msgbox_create(lv_scr_act(), "Abbrechen bestaetigen", "Abkuehlprozess wirklich abbrechen?", btns, true);
+        lv_obj_t* mbox = lv_msgbox_create(lv_scr_act(), "Abbrechen bestaetigen", "AbkuehlProcess wirklich abbrechen?", btns, true);
         lv_obj_align(mbox, LV_ALIGN_CENTER, 0, 0);
         lv_obj_set_style_bg_color(mbox, lv_palette_main(LV_PALETTE_GREY), LV_PART_MAIN);
         lv_obj_set_style_bg_opa(mbox, LV_OPA_COVER, LV_PART_MAIN);
@@ -229,7 +238,7 @@ void toggle_cooling_btn_event_cb(lv_event_t * e) {
 
 void createToggleCoolingButton(lv_obj_t * parent) {
     toggle_btn = lv_btn_create(parent);
-    lv_obj_align(toggle_btn, LV_ALIGN_OUT_BOTTOM_MID, 170, 47); // Positionierung
+    lv_obj_align(toggle_btn, LV_ALIGN_OUT_BOTTOM_MID, 170, 10); // Positionierung
     lv_obj_add_event_cb(toggle_btn, toggle_cooling_btn_event_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_style(toggle_btn, &save_btn_style, 0); // Stil auf den Button anwenden
     lv_obj_set_size(toggle_btn, 100, 30); // Größe des Buttons anpassen
@@ -273,61 +282,68 @@ void saveSelectedRecipe() {
 
 
 void recipe_dropdown_event_handler(lv_event_t * e) {
-        
     if (coolingProcessRunning) {
         // Der Button ist deaktiviert; führe keine Aktion aus
         return;
     }
+
     recipe_dropdown = lv_event_get_target(e);
     if (!recipe_dropdown || !lv_obj_is_valid(recipe_dropdown)) return;
+
     int newSelectedIndex = lv_dropdown_get_selected(recipe_dropdown);
     if (newSelectedIndex != selectedRecipeIndex && !recipes.empty()) {
         selectedRecipeIndex = newSelectedIndex;
-    snprintf(dbName, sizeof(dbName), "/setpoint.db", startTime);
-    sdCard.setDbPath(dbName);
+        snprintf(dbName, sizeof(dbName), "/setpoint.db", startTime);
+        sdCard.setDbPath(dbName);
+
         // Datenbank öffnen und initialisieren
-        if (!sdCard.openDatabase("/sd/setpoint.db")) { // Verwenden Sie den vollständigen Pfad aus sdCard
-        Serial.println("Failed to open database");
-        return;
+        if (!sdCard.openDatabase("/sd/setpoint.db")) {
+            Serial.println("Failed to open database");
+            return;
         }
+
         // Erstellen Sie eine neue Tabelle für die Setpoints des ausgewählten Rezepts
         std::string setpointTableName = "Setpoints";
         if (!sdCard.createSetpointTable(setpointTableName)) {
             Serial.println("Fehler beim Erstellen der Setpoint-Tabelle.");
             return;
         }
-    
-    const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
 
-        int stepsPerDay = 12;
-        int stepDurationInSeconds = 2 * 60 * 60;
-        for (size_t day = 0; day < selectedRecipe.temperatures.size() - 1; day++) {
-        float startTemp = selectedRecipe.temperatures[day];
-        float endTemp = selectedRecipe.temperatures[day + 1];
-        float tempStep = (endTemp - startTemp) / stepsPerDay;
+        // Bereiten Sie das Einfügen der Daten vor und starten Sie die Transaktion
+        sdCard.prepareInsertStatement(setpointTableName);
+        sdCard.beginTransaction();
+
+        const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
+        int stepsPerDay = 4; // 24 Stunden / 6 Stunden pro Schritt = 4 Schritte pro Tag
+        int stepDurationInSeconds = 6 * 60 * 60; // 6 Stunden in Sekunden
+        for (size_t day = 0; day < selectedRecipe.temperatures.size(); day++) {
+            float startTemp = selectedRecipe.temperatures[day];
+            float endTemp = (day < selectedRecipe.temperatures.size() - 1) ? selectedRecipe.temperatures[day + 1] : startTemp;
+
             for (int step = 0; step < stepsPerDay; step++) {
-            float tempValue = std::round((startTemp + step * tempStep) * 10) / 10.0;
-            unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
-            char timestamp[24];
-            snprintf(timestamp, sizeof(timestamp), "%lu", stepTime);
+                // Am letzten Tag nur einen Sollwert setzen (den Endwert des Rezepts)
+                if (day == selectedRecipe.temperatures.size() - 1 && step > 0) break;
 
-            if (!sdCard.logSetpointData(setpointTableName,day *12 + step, tempValue)) {
-                Serial.println("Error logging data to database");
-                break;
+                float tempValue = (day < selectedRecipe.temperatures.size() - 1) ? 
+                                  startTemp + ((endTemp - startTemp) * step / stepsPerDay) : 
+                                  startTemp;
+
+                unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
+                if (!sdCard.logSetpointData(stepTime, tempValue)) {
+                    Serial.println("Error logging data to database");
+                    break;
+                }
             }
         }
-    }
-        
+        sdCard.endTransaction();
 
         if (chart && lv_obj_is_valid(chart)) {
             saveSelectedRecipe();
             showSaveConfirmationPopup();
             updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
         }
-    
     }
 }
-
 
 void createRecipeDropdown(lv_obj_t *parent)
 {
@@ -360,7 +376,7 @@ void updateRecipeDropdownState() {
     }
 }
 
-void fileManagementFunction(lv_event_t *e) {
+void ProcessFunction(lv_event_t *e) {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) {
         return;
     }

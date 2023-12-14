@@ -35,7 +35,7 @@ void checkTouch();
 void updateButtonStyles();
 //void wlanSettingsFunction(lv_event_t * event);
 //void modbusSettingsFunction(lv_event_t * event);
-//void fileManagementFunction(lv_event_t * event);
+//void ProcessFunction(lv_event_t * event);
 //void scanFunctionsFunction(lv_event_t * event);
 void checkStandby();
 extern LGFX display;

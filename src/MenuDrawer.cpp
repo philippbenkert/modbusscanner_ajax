@@ -6,7 +6,7 @@
 #include <cstdint>
 #include "RTCControl.h"
 #include "StatusDisplay.h"
-#include "FileManagement.h"
+#include "Process.h"
 
 int activeButtonIndex = -1; // Anfangs ist kein Button aktiv
 
@@ -28,7 +28,7 @@ std::vector<uint8_t*> imageBuffers;
 MenuItem menuItems[] = {
     {"/wifi.png", wlanSettingsFunction},
     {"/modbus.png", modbusSettingsFunction},
-    {"/folder.png", fileManagementFunction},
+    {"/folder.png", ProcessFunction},
     {"/scan.png", scanFunctionsFunction},
 };
 
