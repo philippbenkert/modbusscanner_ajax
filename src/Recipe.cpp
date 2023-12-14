@@ -23,6 +23,9 @@ extern bool coolingProcessRunning;
 extern RTC_DS3231 rtc;
 extern std::vector<Recipe> recipes;
 extern Preferences preferences;
+String currentDb;
+
+void clearCursor();
 
 // Struktur zur Speicherung der Zeit-/Temperaturdaten
 struct TimeTempPair {
@@ -42,102 +45,83 @@ int calculateCoolingProgress(unsigned long currentTime, unsigned long startCooli
 
     return daysProgressed;
 }
-
-#include <memory>
-
-std::vector<TimeTempPair> readDatabaseData(const char* dbName) {
+std::vector<TimeTempPair> readDatabaseData(const char* dbName, const std::string& tableName) {
     std::vector<TimeTempPair> data;
+    sqlite3_stmt *stmt;
 
-    dblog_read_context rctx;
-    rctx.page_size_exp = 12;
-
-    // Verwenden von std::unique_ptr für automatische Speicherverwaltung
-    std::unique_ptr<byte[]> buffer(new byte[4096]);
-    rctx.buf = buffer.get();
     Serial.println("Lesen der Datenbank gestartet");
-
-    rctx.read_fn = reinterpret_cast<int32_t(*)(dblog_read_context *, void *, uint32_t, size_t)>(SDCardHandler::readData);
 
     // Öffnen der Datenbank
     if (!sdCard.openDatabase(dbName)) {
-        Serial.println("Fehler beim Öffnen der Datenbank.");
+        Serial.println("Failed to open database");
         return data;
     }
 
-    // Initialisieren des Lesekontexts
-    if (dblog_read_init(&rctx) != DBLOG_RES_OK) {
-        Serial.println("Fehler beim Initialisieren des Lesekontexts.");
+    // Vorbereiten der SQL-Abfrage
+    std::string sql = "SELECT Timestamp, Temperature FROM " + tableName + ";";
+    if (sqlite3_prepare_v2(sdCard.getDb(), sql.c_str(), -1, &stmt, NULL) != SQLITE_OK) {
+        Serial.print("Fehler beim Vorbereiten der Abfrage: ");
+        Serial.println(sqlite3_errmsg(sdCard.getDb()));  // Gibt eine detaillierte Fehlermeldung aus
         return data;
     }
-    Serial.println("Lesen der Daten aus der Datenbank");
 
-    // Lesen der Daten aus der Datenbank
-    while (dblog_read_next_row(&rctx) == DBLOG_RES_OK) {
+    // Ausführen der Abfrage und Lesen der Daten
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
         TimeTempPair pair;
-        uint32_t colType;
 
-        const void* timeData = dblog_read_col_val(&rctx, 0, &colType);
-        if (colType != DBLOG_TYPE_TEXT || timeData == nullptr) {
-            Serial.print("Fehler beim Lesen der Zeit. Typ: ");
-            Serial.println(colType);
-            continue;
-        }
+        // Abrufen des Zeitstempels als Text und Konvertierung in eine long-Variable
+        const char* timeText = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        pair.time = strtoul(timeText, NULL, 10); // Konvertierung von Text zu unsigned long
 
-        const void* tempData = dblog_read_col_val(&rctx, 1, &colType);
-        if (colType != DBLOG_TYPE_REAL || tempData == nullptr) {
-            Serial.print("Fehler beim Lesen der Temperatur. Typ: ");
-            Serial.println(colType);
-            continue;
-        }
+        // Abrufen der Temperatur als Gleitkommazahl
+        pair.temperature = sqlite3_column_double(stmt, 1);
 
-        // Konvertieren Sie den gelesenen String-Zeitstempel in einen numerischen Wert, falls notwendig
-        pair.time = strtoul(reinterpret_cast<const char*>(timeData), nullptr, 10);
-        //pair.time = reinterpret_cast<const char*>(timeData); // Hier wird die Zeit als String gespeichert
-        pair.temperature = *(reinterpret_cast<const float*>(tempData));
-        
         data.push_back(pair);
     }
 
-    // Der Speicher, auf den buffer zeigt, wird automatisch freigegeben
+    // Bereinigen
+    sqlite3_finalize(stmt);
+
     return data;
 }
 
 
+
 // Funktion, um den Fortschrittschart zu aktualisieren
 void updateProgressChart(lv_obj_t* chart, const std::vector<TimeTempPair>& data, unsigned long currentTime) {
-    if (!chart || !lv_obj_is_valid(chart) || !progress_ser) return;
-
-    size_t index = 0;
-    for (; index < data.size() && data[index].time <= currentTime; ++index);
-Serial.println("Setze Chart.");
-    lv_chart_set_point_count(chart, index);
-    for (size_t i = 0; i < index; ++i) {
-        lv_chart_set_next_value(chart, progress_ser, data[i].temperature);
+    if (!chart || !progress_ser) {
+        Serial.println("Chart oder Series nicht initialisiert.");
+        return;
+    }
+    // Setze die Punkteanzahl auf die Gesamtanzahl der Datenpunkte
+    lv_chart_set_point_count(chart, data.size());
+    // Durchlaufe alle Datenpunkte und füge sie dem Chart hinzu
+    for (size_t i = 0; i < data.size(); ++i) {
+        const auto& dataPoint = data[i];
+        if (dataPoint.time <= currentTime) {
+            // Gültiger Datenpunkt
+            lv_chart_set_next_value(chart, progress_ser, dataPoint.temperature);
+        } else {
+            // Setze leeren Wert für Punkte nach der aktuellen Zeit
+            lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
+        }
     }
 }
 
 void updateProgress() {
     Serial.println("Updatevorgang gestartet.");
     // Lesen des aktuellen Datenbanknamens aus den Preferences
-    preferences.begin("process", true);
-    String currentDb = preferences.getString("currentDb", "");
-    Serial.println(currentDb);
-    preferences.end();
-
-    if (currentDb.isEmpty()) return;
-
-        Serial.println("Lesen gestartet.");
-
+    
     // Lesen der Datenbank-Daten
-    std::vector<TimeTempPair> dbData = readDatabaseData(currentDb.c_str());
-        Serial.println("Lesen abgeschlossen.");
+    std::vector<TimeTempPair> dbData = readDatabaseData(currentDb.c_str(), "TemperatureLog");
+
     // Aktuelle Zeit ermitteln
     unsigned long currentTime = rtc.now().unixtime();
+    Serial.println(currentTime);
 
     // Aktualisieren des Fortschrittscharts
     Serial.println("UpdateChart gestartet.");
     updateProgressChart(chart, dbData, currentTime);
-    
 }
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
@@ -197,15 +181,22 @@ const Recipe& getCurrentRecipe() {
 }
 
 void updateCursorInfo(lv_obj_t* chart, const Recipe& recipe, uint16_t point_idx) {
-    if (point_idx >= recipe.temperatures.size()) {
-        return; // Sicherstellen, dass der Index im Bereich liegt
+    // Berechne den Tagesindex basierend auf dem Punktindex
+    uint16_t dayIndex = point_idx / 12; 
+
+    // Sicherstellen, dass der Tagesindex im Bereich der Rezeptlänge liegt
+    if (dayIndex >= recipe.temperatures.size()) {
+        return; 
     }
-    int temp = recipe.temperatures[point_idx];
+
+    // Holen Sie sich die Temperatur für den berechneten Tag
+    int temp = recipe.temperatures[dayIndex];
     char buf[64];
-    snprintf(buf, sizeof(buf), "Tag %d: %d°C", point_idx, temp);
+    snprintf(buf, sizeof(buf), "Tag %d: %d°C", dayIndex, temp); // "+1", weil Tage normalerweise ab 1 gezählt werden
     lv_label_set_text(cursor_info_label, buf);
     lv_obj_clear_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN); // Zeige das Label an
 }
+
 
 void updateSeriesColor(lv_obj_t* chart, lv_color_t color) {
     if (ser && chart && lv_obj_is_valid(chart)) {
@@ -242,18 +233,23 @@ void chart_touch_event_cb(lv_event_t* e) {
 }
 
 void updateCursorVisibility(lv_obj_t* chart, bool visible) {
-    if (cursor && lv_obj_is_valid((lv_obj_t*)cursor)) {
         if (visible) {
-            // Wenn der Cursor sichtbar sein soll, fügen Sie ihn hinzu und aktivieren Sie den Event-Callback
-            lv_obj_clear_flag((lv_obj_t*)cursor, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_event_cb(chart, chart_touch_event_cb, LV_EVENT_PRESSED, nullptr); // Reaktiviert den Callback
+            if (recipe_dropdown && lv_obj_is_valid(recipe_dropdown)) {
+            lv_obj_clear_flag(recipe_dropdown, LV_OBJ_FLAG_HIDDEN); // Macht das Dropdown wieder sichtbar
+            }
+                       
         } else {
-            // Wenn der Cursor nicht sichtbar sein soll, verstecken Sie ihn und deaktivieren Sie den Event-Callback
-            lv_obj_add_flag((lv_obj_t*)cursor, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_remove_event_cb(chart, chart_touch_event_cb); // Entfernt den Callback
+            if (cursor) {
+            }
+            Serial.println("Versteckt das Dropdown."); // Debug-Ausgabe
+            if (recipe_dropdown && lv_obj_is_valid(recipe_dropdown)) {
+            lv_obj_add_flag(recipe_dropdown, LV_OBJ_FLAG_HIDDEN); // Versteckt das Dropdown
+            } 
         }
-    }
+
+
 }
+
 
 void clearCursor() {
     if (cursor) {
@@ -277,7 +273,7 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp, max_temp);
 
     if (chart_type == LV_CHART_TYPE_LINE) {
-        lv_chart_set_point_count(chart, recipe.temperatures.size());
+        lv_chart_set_point_count(chart, recipe.temperatures.size() * 12); // 12 Punkte pro Tag
     }
 
     lv_obj_add_style(chart, style, 0);
@@ -285,61 +281,95 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
 }
 
 void create_chart(){
+    static bool is_chart_style_initialized = false;
+    static lv_style_t chart_style;
+
     chart = lv_chart_create(content_container);
-        lv_obj_add_style(chart, &style_no_border, 0);
-        lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
-        lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -10);
-        cursor_info_label = lv_label_create(chart);
-        lv_label_set_text(cursor_info_label, ""); // Kein Text zu Beginn
-        lv_obj_set_size(cursor_info_label, 100, 20); // Passen Sie die Größe nach Bedarf an
-        lv_obj_align(cursor_info_label, LV_ALIGN_TOP_RIGHT, -10, 10); // Rechts oben im Chart positionieren
-        lv_obj_add_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN); // Verstecken, bis benötigt
-        if (chart && lv_obj_is_valid(chart)) {
-        lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
-        ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
-        }
-        if (!ser) return;
-}
-void updateChartBasedOnRecipe(const Recipe& recipe) {
-    clearContentArea();
-    lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
-    createRecipeDropdown(content_container);
-    createSaveButton(content_container); // Button hinzufügen
-    createToggleCoolingButton(content_container);
-    int X_MAX = recipe.temperatures.size(); // Maximale X-Position basierend auf der Anzahl der Temperaturen
-    int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
-    int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
-    if (!chart || !lv_obj_is_valid(chart)) {
-        create_chart();
-    }   
-    if (chart && lv_obj_is_valid(chart) && lv_obj_has_class(chart, &lv_chart_class)) {
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
-    lv_chart_set_point_count(chart, recipe.temperatures.size());
-    }
-     // Löscht den Cursor, falls vorhanden
-    clearCursor();
-    if (!cursor) {
-        if (chart && lv_obj_is_valid(chart) && lv_obj_has_class(chart, &lv_chart_class)) {
-        cursor = lv_chart_add_cursor(chart, lv_palette_main(LV_PALETTE_BLUE), LV_DIR_VER);
-        }
-    }
-    if(chart && lv_obj_has_class(chart, &lv_chart_class)) {
-    initAxisStyle();
-    // Wenden Sie den Stil auf das Chart an
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 1, 1, recipe.temperatures.size(), 1, true, 20);
-    int y_major_tick_count = 10; // Anzahl der Haupt-Ticks auf der Y-Achse
-    lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, y_major_tick_count, 1, true, 25);
-    lv_obj_add_event_cb(chart, chart_touch_event_cb, LV_EVENT_PRESSED, nullptr);
-    lv_chart_set_all_value(chart, ser, LV_CHART_POINT_NONE);
-    for (auto& temp : recipe.temperatures) {
-        lv_chart_set_next_value(chart, ser, temp);
-    }
-    lv_obj_add_style(chart, &style, LV_PART_TICKS); // Wenden Sie den Stil auf die Achsenbeschriftungen an
-    lv_obj_clear_flag(chart, LV_OBJ_FLAG_SCROLLABLE);
-    lv_chart_refresh(chart);
+    lv_obj_add_style(chart, &style_no_border, 0);
+    lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
+    lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -10);
+    cursor_info_label = lv_label_create(chart);
+    lv_label_set_text(cursor_info_label, "");
+    lv_obj_set_size(cursor_info_label, 100, 20);
+    lv_obj_align(cursor_info_label, LV_ALIGN_TOP_RIGHT, -10, 10);
+    lv_obj_add_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN);
+
+    // Initialisiere den Stil nur, wenn es das erste Mal ist
+    if (!is_chart_style_initialized) {
+        lv_style_init(&chart_style);
+        lv_style_set_size(&chart_style, 3);
+        is_chart_style_initialized = true;
     }
 
-    //DateTime now = rtc.now();
+    if (chart && lv_obj_is_valid(chart)) {
+        lv_obj_add_style(chart, &chart_style, LV_PART_INDICATOR);
+        lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+        ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
+        progress_ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    }
+}
+
+float interpolate(int dayIndex, int subIndex, const Recipe& recipe) {
+    if (dayIndex >= recipe.temperatures.size() - 1) {
+        return recipe.temperatures.back();
+    }
+    float startTemp = recipe.temperatures[dayIndex];
+    float endTemp = recipe.temperatures[dayIndex + 1];
+    float step = (endTemp - startTemp) / 12.0; // 12 Schritte pro Tag
+    return startTemp + step * subIndex;
+}
+
+void updateChartBasedOnRecipe(const Recipe& recipe) {
+    clearContentArea();
+    SDCardHandler::setDbPath("/setpoint.db");
+    Serial.println("Aktuelle Datenbank: /setpoint.db");
+
+    lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
+    createRecipeDropdown(content_container);
+    createToggleCoolingButton(content_container);
+
+    // Lese Daten aus der Datenbank
+    std::vector<TimeTempPair> dbData = readDatabaseData("/setpoint.db", "Setpoints");
+
+    int totalPoints = dbData.size();
+    int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
+    int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end());
+
+    if (!chart || !lv_obj_is_valid(chart)) {
+        create_chart();
+    }
+
+    if (chart && lv_obj_is_valid(chart) && lv_obj_has_class(chart, &lv_chart_class)) {
+        lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp - Y_AXIS_PADDING, max_temp + Y_AXIS_PADDING);
+        lv_chart_set_point_count(chart, totalPoints);
+
+        clearCursor();
+        if (!cursor) {
+            cursor = lv_chart_add_cursor(chart, lv_palette_main(LV_PALETTE_BLUE), LV_DIR_VER);
+        }
+
+        initAxisStyle();
+        // Anpassung der X-Achsenbeschriftung entsprechend der Anzahl der Datenpunkte
+        int numLabels = dbData.size() /12; 
+        if (dbData.size() % 12 != 0) {
+        numLabels += 1;
+        }
+        lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 0, 0, numLabels, 1, true, 20);
+        int y_major_tick_count = 10; 
+        lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, y_major_tick_count, 1, true, 25);
+        lv_obj_add_event_cb(chart, chart_touch_event_cb, LV_EVENT_PRESSED, nullptr);
+
+        lv_chart_set_all_value(chart, ser, LV_CHART_POINT_NONE);
+        // Setze die Temperaturen aus der Datenbank
+        for (int i = 0; i < dbData.size(); ++i) {
+            lv_chart_set_next_value(chart, ser, dbData[i].temperature);
+        }
+
+        lv_obj_add_style(chart, &style, LV_PART_TICKS);
+        lv_obj_clear_flag(chart, LV_OBJ_FLAG_SCROLLABLE);
+        lv_chart_refresh(chart);
+    }
+
     if (coolingProcessRunning) {
         displayEndTime(savedEndTime);
     } else {
@@ -348,6 +378,7 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     }
     updateToggleCoolingButtonText();
 }
+
 
 void clearLabels(std::vector<lv_obj_t*>& labels) {
     for (auto& label : labels) {

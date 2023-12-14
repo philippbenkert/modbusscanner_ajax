@@ -71,6 +71,78 @@ String getWlanSettingsAsJson() {
     return "{}"; // Return empty JSON if no settings were found
 }
 
+void wifiTask(void *parameter) {
+    for (;;) {
+
+        dnsServer.processNextRequest();  // DNS-Server aktualisieren
+        otaUpdates.handle();
+        if (!WiFi.isConnected() && shouldReconnect) {
+            connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
+        }
+        
+        if (isConnectedModbus) {
+        auto configs = readModbusConfigs("/config/device.json");
+        if (modbusScanner.tryConnectAndIdentify(configs)) {
+            Serial.println("Gerät identifiziert: " + device);
+        } else {
+            Serial.println("Keine Geräte identifiziert.");
+            isConnectedModbus = false;
+            //updateToggleButtonLabel(btn);
+        }
+        }
+
+        delay(1000); // Verzögerung zur CPU-Entlastung
+    }
+    }
+
+    void uiModbusTask(void *parameter) {
+    for (;;) {
+
+        lv_task_handler();
+        checkStandby();
+        // RTC-Update (z.B. jede Sekunde)
+        static uint32_t lastTime = 0;
+        if (millis() - lastTime > 1000) {
+        lastTime = millis();
+        DateTime now = rtc.now();
+    }
+
+        if (chart && lv_obj_is_valid(chart)) {
+    static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
+    const unsigned long updateInterval = 10000; // 5 Minuten in Millisekunden
+
+    unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
+
+    
+    updateCursorVisibility(chart, !coolingProcessRunning);
+
+    if (currentTime1 - lastUpdateTime >= updateInterval) {
+        lastUpdateTime = currentTime1; // Aktualisieren des Zeitpunkts der letzten Aktualisierung
+    void updateRecipeDropdownState();
+        if (coolingProcessRunning) {
+            updateProgress();
+            isMenuLocked = true;
+        } 
+    
+        
+
+        lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+        updateSeriesColor(chart, seriesColor);
+
+        lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
+    }
+        if (coolingProcessRunning) {
+            isMenuLocked = true;
+        } else {
+            isMenuLocked = false;
+        }
+
+        
+}
+
+        delay(10); // Kurze Verzögerung
+    }
+}
 void setup() {
     isConnectedModbus = false;
     // Initialize Serial communication
@@ -127,66 +199,32 @@ void setup() {
     modbusScanner.begin();
     //isConnectedModbus = modbusScanner.isClientReachable(); // Überprüfe, ob der Modbus-Client erreichbar ist
 
+    // Erstelle den WiFi-Task auf Kern 0
+    xTaskCreatePinnedToCore(
+        wifiTask,     // Task-Funktion
+        "WiFi Task",  // Name der Task
+        10000,        // Stack-Größe
+        NULL,         // Parameter
+        1,            // Priorität
+        NULL,         // Task-Handle
+        0             // Kern-Nummer
+    );
+
+    // Erstelle den UI/Modbus-Task auf Kern 1
+    xTaskCreatePinnedToCore(
+        uiModbusTask, // Task-Funktion
+        "UI Modbus Task", // Name der Task
+        10000,        // Stack-Größe
+        NULL,         // Parameter
+        1,            // Priorität
+        NULL,         // Task-Handle
+        1             // Kern-Nummer
+    );
     }
+
+    
 
     void loop() {
-    static uint32_t nextTick = 0;
-    uint32_t currentTime = millis();
-
-    if(currentTime > nextTick) {
-        nextTick = currentTime + lv_timer_handler();
-    }
-
-    lv_task_handler();
-    delay(5);  // A short delay can be beneficial
-    dnsServer.processNextRequest();  // DNS-Server aktualisieren
-    checkStandby();
-
-    // RTC-Update (z.B. jede Sekunde)
-    static uint32_t lastTime = 0;
-    if (millis() - lastTime > 1000) {
-        lastTime = millis();
-        DateTime now = rtc.now();
-    }
-    otaUpdates.handle();
-    if (!WiFi.isConnected() && shouldReconnect) {
-        connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
-    }
-    if (isConnectedModbus) {
-        auto configs = readModbusConfigs("/config/device.json");
-        if (modbusScanner.tryConnectAndIdentify(configs)) {
-            Serial.println("Gerät identifiziert: " + device);
-        } else {
-            Serial.println("Keine Geräte identifiziert.");
-            isConnectedModbus = false;
-            //updateToggleButtonLabel(btn);
-        }
-    }
-
-if (chart && lv_obj_is_valid(chart)) {
-    static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
-    const unsigned long updateInterval = 10000; // 5 Minuten in Millisekunden
-
-    unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
-
-    if (currentTime1 - lastUpdateTime >= updateInterval) {
-        lastUpdateTime = currentTime1; // Aktualisieren des Zeitpunkts der letzten Aktualisierung
-    void updateRecipeDropdownState();
-    void updateSaveButtonState();
-    if (coolingProcessRunning) {
-        updateProgress();
-        isMenuLocked = true;
-    } else {
-        isMenuLocked = false;
-    }
     
-        bool cursorVisible = !coolingProcessRunning;
-        updateCursorVisibility(chart, cursorVisible);
 
-        lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
-        updateSeriesColor(chart, seriesColor);
-
-        lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
-    }
-}
     }

@@ -24,7 +24,6 @@ lv_obj_t* label = nullptr;
 lv_obj_t* label1 = nullptr;
 lv_obj_t* btn = nullptr;
 //lv_obj_t* end_time_label = nullptr;
-lv_obj_t* save_btn = nullptr;
 static lv_obj_t* end_time_label = nullptr;
 DateTime now;
 unsigned long startTime;
@@ -36,7 +35,7 @@ int selectedRecipeIndex = 0;
 int globalEndTime;
 bool coolingProcessRunning;
 void updateToggleCoolingButtonText();
-struct dblog_write_context wctx;
+//struct dblog_write_context wctx;
 unsigned long savedEndTime = 0;
 char buffer[30];
 char dbName[64];
@@ -109,102 +108,84 @@ int flush_fn(struct dblog_write_context *ctx) {
 }
 
 void startCoolingProcess() {
-    Serial.println("Start Cooling Process");
-
     if (selectedRecipeIndex < 0 || selectedRecipeIndex >= recipes.size()) {
         Serial.println("Invalid recipe index");
         return;
     }
+
     coolingProcessRunning = true;
     updateToggleCoolingButtonText();
     const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
     now = rtc.now();
     startTime = now.unixtime();
-    char ts[24];
-    snprintf(ts, sizeof(ts), "%lu", startTime);
-    dbName[64];
-    snprintf(dbName, sizeof(dbName), "/setpoint_%lu.db", startTime);
+
+    snprintf(dbName, sizeof(dbName), "/setpoint.db", startTime);
     sdCard.setDbPath(dbName);
 
     // Datenbank öffnen und initialisieren
-    std::unique_ptr<byte[]> buffer(new byte[4096]);
-    wctx.buf = buffer.get();
-    wctx.col_count = 2; // Anzahl der Spalten (Zeit als Text und Temperatur)
-    wctx.page_size_exp = 12; // Seitengröße als Exponent von 2 (hier 4096)
-    wctx.read_fn = SDCardHandler::readData;
-    wctx.write_fn = SDCardHandler::writeData;
-    wctx.flush_fn = flush_fn;
-    
-    const char *table_script_literal = "CREATE TABLE temperature_log (time TEXT, temperature REAL);";
-    const char *table_name_literal = "temperature_log";
-    char *table_script = const_cast<char*>(table_script_literal);
-    char *table_name = const_cast<char*>(table_name_literal);
-
-    if (dblog_write_init_with_script(&wctx, table_name, table_script) != DBLOG_RES_OK) {
-        Serial.println("Failed to initialize database");
+     if (!sdCard.openDatabase("/sd/setpoint.db")) { // Verwenden Sie den vollständigen Pfad aus sdCard
+        Serial.println("Failed to open database");
         return;
     }
+
+    sdCard.clearTable("TemperatureLog");
+
     int stepsPerDay = 12;
     int stepDurationInSeconds = 2 * 60 * 60;
     for (size_t day = 0; day < selectedRecipe.temperatures.size() - 1; day++) {
         float startTemp = selectedRecipe.temperatures[day];
         float endTemp = selectedRecipe.temperatures[day + 1];
-        float tempStep = (endTemp - startTemp) / stepsPerDay;
-        for (int step = 0; step < stepsPerDay; step++) {
-            float tempValue = std::round((startTemp + step * tempStep) * 10) / 10.0;
-            int stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
-            snprintf(ts, sizeof(ts), "%d", stepTime);
-            if (dblog_append_empty_row(&wctx) != DBLOG_RES_OK) {
-                Serial.println("Error appending empty row in database");
+        float tempDifference = endTemp - startTemp;
+        float tempStep = tempDifference / (stepsPerDay - 1); // -1, da der letzte Schritt zum nächsten Tag gehört
+            for (int step = 0; step < stepsPerDay; step++) {
+            float tempValue = startTemp + step * tempStep;
+            //tempValue = std::round(tempValue * 10) / 10.0;
+            unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
+            char timestamp[24];
+            snprintf(timestamp, sizeof(timestamp), "%lu", stepTime);
+                if (!sdCard.logData(timestamp, tempValue)) {
+                Serial.println("Error logging data to database");
                 break;
+                }
             }
-            if (dblog_set_col_val(&wctx, 0, DBLOG_TYPE_TEXT, ts, strlen(ts)) != DBLOG_RES_OK) {
-                Serial.println("Error inserting time into database");
-                break;
-            }
-            if (dblog_set_col_val(&wctx, 1, DBLOG_TYPE_REAL, &tempValue, sizeof(tempValue)) != DBLOG_RES_OK) {
-                Serial.println("Error inserting temperature into database");
-                break;
-            }
-            Serial.print("Inserting temperature value: ");
-            Serial.println(tempValue);
-            Serial.print("At time: ");
-            Serial.println(ts);
-        }
     }
-    if (dblog_finalize(&wctx) != DBLOG_RES_OK) {
-        Serial.println("Error finalizing database.");
-    }
-    Serial.println("Database finalized successfully");
+
 
     // Endzeit berechnen und anzeigen
     unsigned long processDuration = (selectedRecipe.temperatures.size() - 1) * 24 * 60 * 60;
     unsigned long endTime = startTime + processDuration;
     displayEndTime(endTime);
+
     // Status in den Festspeicher speichern
     preferences.begin("process", false);
     preferences.putInt("coolingProcess", 1);
     preferences.putULong("endTime", endTime);
-    preferences.putString("currentDb", dbName);
     preferences.putULong("starttime1", startTime);
     preferences.end();
-    Serial.println("End Cooling Process");
 }
+
 
 
 void stopCoolingProcess() {
     coolingProcessRunning = false;
     preferences.begin("process", true);
-    String currentDb = preferences.getString("currentDb", "");
     preferences.end();
     preferences.begin("process", false);
     preferences.putInt("coolingProcess", 0);
-    preferences.remove("currentDb");
+    
     preferences.end();
+
+    if (chart && progress_ser) {
+                Serial.println("Leere progress_ser Serie."); // Debug-Ausgabe
+                lv_chart_set_point_count(chart, lv_chart_get_point_count(chart));
+                for (int i = 0; i < lv_chart_get_point_count(chart); i++) {
+                    lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
+                }
+            }
+            
     updateToggleCoolingButtonText();
-    unsigned long endTime = calculateEndTimeFromDb(currentDb.c_str());
-    displayEndTime(endTime);
 }
+    
 
 static void confirm_cooling_stop_cb(lv_event_t * e) {
     lv_obj_t* mbox = reinterpret_cast<lv_obj_t*>(lv_event_get_user_data(e));
@@ -253,7 +234,6 @@ void createToggleCoolingButton(lv_obj_t * parent) {
     lv_obj_add_style(toggle_btn, &save_btn_style, 0); // Stil auf den Button anwenden
     lv_obj_set_size(toggle_btn, 100, 30); // Größe des Buttons anpassen
     label = lv_label_create(toggle_btn);
-    loadCoolingProcessStatus();
     lv_obj_center(label);
     lv_obj_set_user_data(toggle_btn, label); // Speichern Sie das Label im User-Daten des Buttons
 }
@@ -279,7 +259,7 @@ void showSaveConfirmationPopup() {
             lv_msgbox_close(mbox);
             }
             lv_timer_del(timer);
-    }, 2000, mbox); // Schließt das Popup nach 2 Sekunden
+    }, 5000, mbox); // Schließt das Popup nach 5 Sekunden
 }
 
 void saveSelectedRecipe() {
@@ -291,41 +271,9 @@ void saveSelectedRecipe() {
     preferences.end();
 }
 
-static void save_button_event_handler(lv_event_t* e) {
-    if (coolingProcessRunning) {
-        // Der Button ist deaktiviert; führe keine Aktion aus
-        return;
-    }
-    saveSelectedRecipe();
-    showSaveConfirmationPopup();
-}
-
-void createSaveButton(lv_obj_t * parent) {
-    if (!parent || !lv_obj_is_valid(parent)) return;
-    initialize_save_btn_style();
-    save_btn = lv_btn_create(parent);
-    lv_obj_add_style(save_btn, &save_btn_style, 0); // Stil auf den Button anwenden
-    lv_obj_set_size(save_btn, 100, 30); // Größe des Buttons anpassen
-    lv_obj_align(save_btn, LV_ALIGN_OUT_BOTTOM_MID, 170, 10); // Position unterhalb des Dropdown-Menüs
-    label1 = lv_label_create(save_btn);
-    lv_label_set_text(label1, "Speichern");
-    // Event-Callback für den Button hinzufügen
-    lv_obj_add_event_cb(save_btn, save_button_event_handler, LV_EVENT_CLICKED, NULL);
-}
-
-void updateSaveButtonState() {
-    if (save_btn && lv_obj_is_valid(save_btn)) {
-        if (coolingProcessRunning == true) {
-            lv_obj_add_state(save_btn, LV_STATE_DISABLED);
-            lv_obj_remove_event_cb(save_btn, save_button_event_handler); // Event-Callback entfernen
-        } else {
-            lv_obj_clear_state(save_btn, LV_STATE_DISABLED);
-            lv_obj_add_event_cb(save_btn, save_button_event_handler, LV_EVENT_CLICKED, NULL); // Event-Callback hinzufügen
-        }
-    }
-}
 
 void recipe_dropdown_event_handler(lv_event_t * e) {
+        
     if (coolingProcessRunning) {
         // Der Button ist deaktiviert; führe keine Aktion aus
         return;
@@ -335,11 +283,51 @@ void recipe_dropdown_event_handler(lv_event_t * e) {
     int newSelectedIndex = lv_dropdown_get_selected(recipe_dropdown);
     if (newSelectedIndex != selectedRecipeIndex && !recipes.empty()) {
         selectedRecipeIndex = newSelectedIndex;
-        if (chart && lv_obj_is_valid(chart)) {
-            updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
+    snprintf(dbName, sizeof(dbName), "/setpoint.db", startTime);
+    sdCard.setDbPath(dbName);
+        // Datenbank öffnen und initialisieren
+        if (!sdCard.openDatabase("/sd/setpoint.db")) { // Verwenden Sie den vollständigen Pfad aus sdCard
+        Serial.println("Failed to open database");
+        return;
+        }
+        // Erstellen Sie eine neue Tabelle für die Setpoints des ausgewählten Rezepts
+        std::string setpointTableName = "Setpoints";
+        if (!sdCard.createSetpointTable(setpointTableName)) {
+            Serial.println("Fehler beim Erstellen der Setpoint-Tabelle.");
+            return;
+        }
+    
+    const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
+
+        int stepsPerDay = 12;
+        int stepDurationInSeconds = 2 * 60 * 60;
+        for (size_t day = 0; day < selectedRecipe.temperatures.size() - 1; day++) {
+        float startTemp = selectedRecipe.temperatures[day];
+        float endTemp = selectedRecipe.temperatures[day + 1];
+        float tempStep = (endTemp - startTemp) / stepsPerDay;
+            for (int step = 0; step < stepsPerDay; step++) {
+            float tempValue = std::round((startTemp + step * tempStep) * 10) / 10.0;
+            unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
+            char timestamp[24];
+            snprintf(timestamp, sizeof(timestamp), "%lu", stepTime);
+
+            if (!sdCard.logSetpointData(setpointTableName,day *12 + step, tempValue)) {
+                Serial.println("Error logging data to database");
+                break;
+            }
         }
     }
+        
+
+        if (chart && lv_obj_is_valid(chart)) {
+            saveSelectedRecipe();
+            showSaveConfirmationPopup();
+            updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
+        }
+    
+    }
 }
+
 
 void createRecipeDropdown(lv_obj_t *parent)
 {
@@ -366,10 +354,8 @@ void updateRecipeDropdownState() {
     if (recipe_dropdown && lv_obj_is_valid(recipe_dropdown)) {
         if (coolingProcessRunning == true) {
             lv_obj_add_state(recipe_dropdown, LV_STATE_DISABLED);
-            lv_obj_remove_event_cb(save_btn, recipe_dropdown_event_handler); // Event-Callback entfernen
         } else {
             lv_obj_clear_state(recipe_dropdown, LV_STATE_DISABLED);
-            lv_obj_add_event_cb(save_btn, recipe_dropdown_event_handler, LV_EVENT_CLICKED, NULL); // Event-Callback hinzufügen
         }
     }
 }
@@ -388,6 +374,5 @@ void fileManagementFunction(lv_event_t *e) {
         updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
         isMenuLocked = false;
     }
-    loadCoolingProcessStatus();
     updateToggleCoolingButtonText();
 }
