@@ -38,7 +38,6 @@ std::vector<TimeTempPair> dbData;
 extern void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
 extern bool loadSTACredentials(String &ssid, String &password);
 extern void updateShouldReconnect(bool connect);
-extern void updateProgressChart(lv_obj_t* chart, const Recipe& recipe, unsigned long currentTime);
 extern void updateProgress();
 bool shouldReconnect = true; // oder false, je nach gewünschter Standardfunktionalität
 String lastSSID;

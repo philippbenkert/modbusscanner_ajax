@@ -70,7 +70,7 @@ unsigned long calculateEndTimeFromDb(const char* dbName) {
 void displayEndTime(unsigned long endTime) {
     // Prüfen, ob das Label noch gültig ist
     if (end_time_label && !lv_obj_is_valid(end_time_label)) {
-        end_time_label = nullptr; // Setze die Referenz auf null, wenn das Label ungültig ist
+        end_time_label = nullptr;
     }
 
     // Einmalige Erstellung des Labels, falls es noch nicht existiert
@@ -79,19 +79,20 @@ void displayEndTime(unsigned long endTime) {
         lv_obj_align(end_time_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 55);
     }
 
-    // Textaktualisierung
-    char buffer[64]; // Erhöhen Sie die Größe für den zusätzlichen Text
+    char buffer[64];
     if (endTime > 0 && coolingProcessRunning) {
         time_t endTimeSec = endTime;
         struct tm *endTimeStruct = localtime(&endTimeSec);
-        if (strftime(buffer, sizeof(buffer), "Vorgang endet am %d.%m.%Y %H:%M:%S", endTimeStruct) == 0) {
+        if (strftime(buffer, sizeof(buffer), "Vorgang endet am %d.%m.%Y %H:%M", endTimeStruct) == 0) {
             snprintf(buffer, sizeof(buffer), "Vorgang endet: Fehler bei der Zeitformatierung");
         }
     } else {
         snprintf(buffer, sizeof(buffer), "");
     }
 
-    lv_label_set_text(end_time_label, buffer);
+    if (end_time_label && lv_obj_is_valid(end_time_label)) {
+        lv_label_set_text(end_time_label, buffer);
+    }
 }
 
 void printFreeHeap() {
@@ -119,47 +120,6 @@ void startCoolingProcess() {
     now = rtc.now();
     startTime = now.unixtime();
 
-    snprintf(dbName, sizeof(dbName), "/setpoint.db", startTime);
-    sdCard.setDbPath(dbName);
-
-    // Datenbank öffnen und initialisieren
-     if (!sdCard.openDatabase("/sd/setpoint.db")) { // Verwenden Sie den vollständigen Pfad aus sdCard
-        Serial.println("Failed to open database");
-        return;
-    }
-
-    // Tabelle vorbereiten und Transaction starten
-    sdCard.clearTable("TemperatureLog");
-    sdCard.prepareInsertStatement("TemperatureLog");
-    sdCard.beginTransaction();
-
-    int stepsPerDay = 4; // 24 Stunden / 6 Stunden pro Schritt = 4 Schritte pro Tag
-    int stepDurationInSeconds = 6 * 60 * 60; // 6 Stunden in Sekunden
-    for (size_t day = 0; day < selectedRecipe.temperatures.size(); day++) {
-        float startTemp = selectedRecipe.temperatures[day];
-        float endTemp = (day < selectedRecipe.temperatures.size() - 1) ? selectedRecipe.temperatures[day + 1] : startTemp;
-
-        for (int step = 0; step < stepsPerDay; step++) {
-            if (day == selectedRecipe.temperatures.size() - 1 && step > 0) {
-                break; // Am letzten Tag nur einen Sollwert setzen
-            }
-
-            float tempValue = startTemp;
-            if (day < selectedRecipe.temperatures.size() - 1) {
-                tempValue += ((endTemp - startTemp) * step / stepsPerDay);
-            }
-
-            unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
-
-            if (!sdCard.logSetpointData(stepTime, tempValue)) {
-                Serial.println("Error logging data to database");
-                break;
-            }
-        }
-    }
-    sdCard.endTransaction();
-
-
     // Endzeit berechnen und anzeigen
     unsigned long processDuration = (selectedRecipe.temperatures.size() - 1) * 24 * 60 * 60;
     unsigned long endTime = startTime + processDuration;
@@ -173,8 +133,6 @@ void startCoolingProcess() {
     preferences.end();
 }
 
-
-
 void stopCoolingProcess() {
     coolingProcessRunning = false;
     preferences.begin("process", true);
@@ -185,7 +143,6 @@ void stopCoolingProcess() {
     preferences.end();
 
     if (chart && progress_ser) {
-                Serial.println("Leere progress_ser Serie."); // Debug-Ausgabe
                 lv_chart_set_point_count(chart, lv_chart_get_point_count(chart));
                 for (int i = 0; i < lv_chart_get_point_count(chart); i++) {
                     lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
@@ -215,6 +172,8 @@ void updateToggleCoolingButtonText() {
     if (!label || !lv_obj_is_valid(label)) {
         return;
     }
+    Serial.println("Buttontext setzen.");
+
     // Setzen des Button-Textes basierend auf dem KühlProcessstatus
     lv_label_set_text(label, coolingProcessRunning ? "Stoppen" : "Starten");
 }
@@ -310,8 +269,13 @@ void recipe_dropdown_event_handler(lv_event_t * e) {
         }
 
         // Bereiten Sie das Einfügen der Daten vor und starten Sie die Transaktion
-        sdCard.prepareInsertStatement(setpointTableName);
+        sdCard.prepareInsertStatement("Setpoints");
         sdCard.beginTransaction();
+
+        if (!sdCard.prepareInsertStatement("Setpoints")) {
+        Serial.println("Failed to prepare insert statement");
+        return;
+        }
 
         const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
         int stepsPerDay = 4; // 24 Stunden / 6 Stunden pro Schritt = 4 Schritte pro Tag

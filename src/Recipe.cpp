@@ -41,14 +41,14 @@ void updateProgress() {
     // Lesen des aktuellen Datenbanknamens aus den Preferences
     
     // Lesen der Datenbank-Daten
-    dbData = readDatabaseData(currentDb.c_str(), "TemperatureLog");
+    dbData = readDatabaseData("/sd/setpoint.db", "Setpoints");
     // Aktuelle Zeit ermitteln
     unsigned long currentTime = rtc.now().unixtime();
     Serial.println(currentTime);
 
     // Aktualisieren des Fortschrittscharts
     Serial.println("UpdateChart gestartet.");
-    updateProgressChart(chart, dbData, currentTime);
+    updateProgressChart(chart, progress_ser, dbData, startCoolingTime);
 }
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {

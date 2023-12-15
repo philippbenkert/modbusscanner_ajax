@@ -69,7 +69,7 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     createToggleCoolingButton(content_container);
 
     // Lese Daten aus der Datenbank
-    dbData = readDatabaseData("/setpoint.db", "Setpoints");
+    dbData = readDatabaseData("/sd/setpoint.db", "Setpoints");
 
     int totalPoints = dbData.size();
     int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end());
@@ -114,18 +114,25 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     updateToggleCoolingButtonText();
 }
 
-// Funktion, um den Fortschrittschart zu aktualisieren
-void updateProgressChart(lv_obj_t* chart, const std::vector<TimeTempPair>& data, unsigned long currentTime) {
-    if (!chart || !progress_ser) {
+void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const std::vector<TimeTempPair>& data, unsigned long startCoolingTime) {
+        if (!chart || !progress_ser) {
         Serial.println("Chart oder Series nicht initialisiert.");
         return;
     }
+
+    // Berechne die vergangene Zeit seit startCoolingTime
+    unsigned long currentTime = millis(); // Aktuelle Zeit in Millisekunden
+    unsigned long elapsedTime = currentTime - startCoolingTime;
+
     // Setze die Punkteanzahl auf die Gesamtanzahl der Datenpunkte
     lv_chart_set_point_count(chart, data.size());
+
     // Durchlaufe alle Datenpunkte und füge sie dem Chart hinzu
     for (size_t i = 0; i < data.size(); ++i) {
         const auto& dataPoint = data[i];
-        if (dataPoint.time <= currentTime) {
+        // Berechne die Zeit für diesen Datenpunkt (4 Stunden pro Punkt)
+        unsigned long dataPointTime = startCoolingTime + i * 4 * 60 * 60 * 1000;
+        if (dataPointTime <= currentTime) {
             // Gültiger Datenpunkt
             lv_chart_set_next_value(chart, progress_ser, dataPoint.temperature);
         } else {

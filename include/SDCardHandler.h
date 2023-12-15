@@ -33,7 +33,7 @@ public:
     }
     bool createSetpointTable(const std::string& tableName);
     bool prepareInsertStatement(const std::string& tableName);
-    bool logSetpointData(int day, float temperature);
+    bool logSetpointData(unsigned long timestamp, float temperature);
     bool clearTable(const std::string& tableName);
     void beginTransaction();
     void endTransaction();
