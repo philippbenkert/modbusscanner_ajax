@@ -141,7 +141,6 @@ void modbusSettingsFunction(lv_event_t * e) {
         // Dropdown für Geräte
     ddlist_device = lv_dropdown_create(content_container);
 
-    // Laden der Gerätekonfigurationen
     std::vector<ModbusDeviceConfig> deviceConfigs = readModbusConfigs("/config/device.json");
 
     // Erstellen eines Strings für die Dropdown-Optionen
@@ -210,12 +209,10 @@ void modbusSettingsFunction(lv_event_t * e) {
             }
             addressOptions += String(i);
         }
-
         lv_dropdown_set_options(ddlist_address, addressOptions.c_str());
         lv_obj_align(ddlist_address, LV_ALIGN_TOP_LEFT, 225, 167);
         lv_obj_add_style(ddlist_address, &style_no_border, 0);
         lv_obj_set_size(ddlist_address, 45, 30);
-
         // Label für Standardeinstellungen
         lv_obj_t * label_default = lv_label_create(content_container);
         lv_label_set_text(label_default, "Standardeinstellungen");
@@ -225,9 +222,6 @@ void modbusSettingsFunction(lv_event_t * e) {
         lv_obj_t * cb_default = lv_checkbox_create(content_container);
         lv_obj_align(cb_default, LV_ALIGN_TOP_LEFT, 250, 210);
         lv_checkbox_set_text(cb_default, "");
-
-
-        // Initialisieren Sie die Datenstruktur nach der Erstellung der Dropdowns
         ModbusSettingsData* data = new ModbusSettingsData{
             ddlist_baudrate,
             ddlist_stopbits,

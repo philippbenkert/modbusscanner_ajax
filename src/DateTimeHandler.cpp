@@ -17,11 +17,10 @@ void saveDSTEnabled() {
 }
 
 void loadDSTEnabled() {
-  preferences.begin("settings", true);
-  dstEnabled = preferences.getBool("dstEnabled", false);
-  Serial.print("Loaded dstEnabled value from NVS: ");
-  Serial.println(dstEnabled);
-  preferences.end();
+    preferences.begin("settings", true);
+    dstEnabled = preferences.getBool("dstEnabled", false);
+    Serial.printf("Loaded dstEnabled value from NVS: %s\n", dstEnabled ? "true" : "false");
+    preferences.end();
 }
 
 void updateDSTStatus() {
@@ -35,24 +34,15 @@ void updateDSTStatus() {
 }
 
 void adjustForDST() {
-    if (!dstEnabled) {
-        return; // Wenn DST deaktiviert ist, mache nichts
-    }
+    if (!dstEnabled) return;
 
     DateTime now = rtc.now();
     bool isDst = checkDST(now);
 
-    // Prüfe, ob eine Anpassung notwendig ist
     if (isCurrentlyDST != isDst) {
-        if (isDst) {
-            // Beginn der Sommerzeit, füge eine Stunde hinzu
-            now = now + TimeSpan(0, 1, 0, 0);
-        } else {
-            // Ende der Sommerzeit, subtrahiere eine Stunde
-            now = now - TimeSpan(0, 1, 0, 0);
-        }
-        rtc.adjust(now);
-        isCurrentlyDST = isDst; // Aktualisiere den gespeicherten DST-Status
+        TimeSpan adjustmentTime(0, isDst ? 1 : -1, 0, 0);
+        rtc.adjust(now + adjustmentTime);
+        isCurrentlyDST = isDst;
     }
 }
 
@@ -71,40 +61,35 @@ bool checkDST(DateTime now) {
 }
 
 String getDateTimeStr() {
-  DateTime now = getRTCDateTime();
+    DateTime now = rtc.now();
+    if (!now.isValid()) {
+        Serial.println("RTC is not running!");
+        return "RTC Error";
+    }
 
-  if (!now.isValid()) {
-    Serial.println("RTC is not running!");
-    return "RTC Error";
-  }
-
-  char dateTimeStr[20];
-  snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d.%02d.%04d %02d:%02d",
-           now.day(), now.month(), now.year(), now.hour(), now.minute());
-
-  return String(dateTimeStr);
+    char dateTimeStr[20];
+    snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d.%02d.%04d %02d:%02d",
+             now.day(), now.month(), now.year(), now.hour(), now.minute());
+    return String(dateTimeStr);
 }
 
 void setDateTimeRollersToCurrent() {
-    DateTime now = rtc.now(); // Annahme, dass die Funktion `.now()` das aktuelle DateTime-Objekt vom RTC zurückgibt
-
+    DateTime now = rtc.now();
     if (!now.isValid()) {
         Serial.println("RTC is not running!");
         return;
     }
 
-    // Setzen der Roller auf den aktuellen Wert
     lv_roller_set_selected(dayRoller, now.day() - 1, LV_ANIM_OFF);
     lv_roller_set_selected(monthRoller, now.month() - 1, LV_ANIM_OFF);
-    lv_roller_set_selected(yearRoller, now.year() - 2020, LV_ANIM_OFF); // Wenn die Roller-Jahre bei 2020 beginnen
+    lv_roller_set_selected(yearRoller, now.year() - 2020, LV_ANIM_OFF);
     lv_roller_set_selected(hourRoller, now.hour(), LV_ANIM_OFF);
     lv_roller_set_selected(minuteRoller, now.minute(), LV_ANIM_OFF);
 }
 
-void setup_datetime_update(lv_obj_t * dateTimeLabel) {
-    // 'dateTimeLabel' ist das lv_obj_t* für das Datum- und Zeit-Label
-    if (dateTimeLabel != nullptr) {
-        lv_timer_t * timer = lv_timer_create(update_datetime_label, 1000, dateTimeLabel); // 1000 ms (1 Sekunde) Intervall
-        lv_timer_ready(timer); // Startet den Timer sofort
+void setup_datetime_update(lv_obj_t* dateTimeLabel) {
+    if (dateTimeLabel) {
+        lv_timer_t* timer = lv_timer_create(update_datetime_label, 1000, dateTimeLabel);
+        lv_timer_ready(timer);
     }
 }

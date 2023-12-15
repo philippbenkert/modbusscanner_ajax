@@ -18,12 +18,8 @@
 #include "ModbusSettings.h"
 #include "CommonDefinitions.h"
 
-// Konstanten
-//#define BOARD_POWER_ON        4
 #define BOARD_485_EN            2
-//#define GPIO_PUSE             16
 
-// Globale Objekte
 RTC_DS3231 rtc;
 LGFX display;
 SDCardHandler sdCard;
@@ -82,7 +78,6 @@ void wifiTask(void *parameter) {
         if (!WiFi.isConnected() && shouldReconnect) {
             connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
         }
-        
         if (isConnectedModbus) {
         auto configs = readModbusConfigs("/config/device.json");
         if (modbusScanner.tryConnectAndIdentify(configs)) {
@@ -93,7 +88,6 @@ void wifiTask(void *parameter) {
             //updateToggleButtonLabel(btn);
         }
         }
-
         delay(1000); // Verzögerung zur CPU-Entlastung
     }
     }
@@ -103,7 +97,6 @@ void wifiTask(void *parameter) {
 
         lv_task_handler();
         checkStandby();
-        // RTC-Update (z.B. jede Sekunde)
         static uint32_t lastTime = 0;
         if (millis() - lastTime > 1000) {
         lastTime = millis();
@@ -115,7 +108,6 @@ void wifiTask(void *parameter) {
             const unsigned long updateInterval = 10000; // 5 Minuten in Millisekunden
             unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
             updateCursorVisibility(chart, !coolingProcessRunning);
-
         if (currentTime1 - lastUpdateTime >= updateInterval) {
         lastUpdateTime = currentTime1; // Aktualisieren des Zeitpunkts der letzten Aktualisierung
         void updateRecipeDropdownState();
@@ -130,33 +122,25 @@ void wifiTask(void *parameter) {
             isMenuLocked = false;
         }       
         }
-
         delay(10); // Kurze Verzögerung
     }
 }
 void setup() {
     isConnectedModbus = false;
-    // Initialize Serial communication
     Serial.begin(115200);
-
-    // Initialize LittleFS
     if (!LittleFS.begin(true)) {
         return;
     }
-
     Wire.begin(10, 11);  // SDA auf GPIO10, SCL auf GPIO11
     if (!rtc.begin()) {
         Serial.println("RTC konnte nicht gefunden werden!");
         while (1);
     }
-
     if (rtc.lostPower()) {
         Serial.println("RTC hat die Zeit verloren. Setze auf die aktuelle Zeit.");
         // Setze die RTC-Zeit auf die Kompilierungszeit
         rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     }
-
-    // Load WLAN credentials
     String savedSSID, savedPassword;
     if(loadCredentials(savedSSID, savedPassword)) {
         // Create Access Point (AP) with loaded credentials
@@ -167,15 +151,12 @@ void setup() {
         }
     } else {
     }
-
-    // Initialize other components
     pinMode(BOARD_485_EN, OUTPUT);
     digitalWrite(BOARD_485_EN, LOW);
     loadDSTEnabled(); // Lade den DST-Zustand
     updateDSTStatus(); // Aktualisiere den Systemstatus entsprechend
     readRecipesFromFile();
     loadCoolingProcessStatus();
-    
     sdCard.init();
     webServer.begin();
     modbusScanner.begin();
@@ -184,12 +165,10 @@ void setup() {
     otaUpdates.begin("savedSSID", "savedPassword");
 
     if (coolingProcessRunning) {
-        // Verstecke das Dropdown-Menü, wenn der KühlProcess läuft
         if (recipe_dropdown && lv_obj_is_valid(recipe_dropdown)) {
             lv_obj_add_flag(recipe_dropdown, LV_OBJ_FLAG_HIDDEN);
         }
         lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
-
     }
 
     String ssid, password;
@@ -197,34 +176,10 @@ void setup() {
         connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
     }
     modbusScanner.begin();
-    //isConnectedModbus = modbusScanner.isClientReachable(); // Überprüfe, ob der Modbus-Client erreichbar ist
 
-    // Erstelle den WiFi-Task auf Kern 0
-    xTaskCreatePinnedToCore(
-        wifiTask,     // Task-Funktion
-        "WiFi Task",  // Name der Task
-        10000,        // Stack-Größe
-        NULL,         // Parameter
-        1,            // Priorität
-        NULL,         // Task-Handle
-        0             // Kern-Nummer
-    );
-
-    // Erstelle den UI/Modbus-Task auf Kern 1
-    xTaskCreatePinnedToCore(
-        uiModbusTask, // Task-Funktion
-        "UI Modbus Task", // Name der Task
-        10000,        // Stack-Größe
-        NULL,         // Parameter
-        1,            // Priorität
-        NULL,         // Task-Handle
-        1             // Kern-Nummer
-    );
-    }
-
+    xTaskCreatePinnedToCore(wifiTask, "WiFi Task", 10000, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(uiModbusTask, "UI Modbus Task", 10000, NULL, 1, NULL, 1);
+}
     
-
-    void loop() {
-    
-
-    }
+void loop() {
+}

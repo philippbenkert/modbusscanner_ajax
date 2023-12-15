@@ -13,7 +13,7 @@ extern lv_chart_cursor_t* cursor;
 extern lv_obj_t* cursor_info_label;
 extern bool coolingProcessRunning;
 
-void create_chart();
+void createChart();
 void updateChartBasedOnRecipe(const Recipe& recipe);
 void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const std::vector<TimeTempPair>& data, unsigned long startCoolingTime);
 void chart_touch_event_cb(lv_event_t* e);

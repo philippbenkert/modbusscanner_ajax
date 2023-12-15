@@ -226,18 +226,6 @@ function addFormEventListener(formId, actionType) {
                 data: dataObj
             }));
         });
-
-        // Hier fügen wir den click-Event-Listener hinzu
-        //form.addEventListener('click', function(event) {
-        //    if (event.target.closest('a') && event.target.closest('li')) {
-        //        const path = event.target.getAttribute('data-path');
-        //        if (path) {
-        //            // Anstatt einen HTTP-Request zu senden, senden wir eine WebSocket-Nachricht
-        //            ws.send(JSON.stringify({ action: 'fetchFiles', path: path }));
-        //            event.preventDefault();
-        //        }
-        //    }
-        //});
     }
 }
 
