@@ -21,6 +21,8 @@
 #define BOARD_485_EN            2
 
 RTC_DS3231 rtc;
+DateTime now;
+unsigned long lastTime = 0;
 LGFX display;
 SDCardHandler sdCard;
 WebServer webServer;
@@ -30,6 +32,7 @@ extern ModbusScanner modbusScanner;
 extern DNSServer dnsServer;
 extern lv_obj_t* recipe_dropdown;
 std::vector<TimeTempPair> dbData;
+extern lv_color_t seriesColor;
 
 extern void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
 extern bool loadSTACredentials(String &ssid, String &password);
@@ -97,15 +100,14 @@ void wifiTask(void *parameter) {
 
         lv_task_handler();
         checkStandby();
-        static uint32_t lastTime = 0;
         if (millis() - lastTime > 1000) {
         lastTime = millis();
-        DateTime now = rtc.now();
+        now = rtc.now(); // Aktualisiere die globale Variable `now`
     }
 
         if (chart && lv_obj_is_valid(chart)) {
             static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
-            const unsigned long updateInterval = 10000; // 5 Minuten in Millisekunden
+            const unsigned long updateInterval = 300000; // 5 Minuten in Millisekunden
             unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
             updateCursorVisibility(chart, !coolingProcessRunning);
         if (currentTime1 - lastUpdateTime >= updateInterval) {
@@ -122,7 +124,6 @@ void wifiTask(void *parameter) {
             isMenuLocked = false;
         }       
         }
-        delay(10); // Kurze Verzögerung
     }
 }
 void setup() {
@@ -158,6 +159,12 @@ void setup() {
     readRecipesFromFile();
     loadCoolingProcessStatus();
     sdCard.init();
+
+    // Öffnen der Datenbank
+    if (!sdCard.openDatabase("/sd/setpoint.db")) {
+    Serial.println("Fehler beim Öffnen der Datenbank.");
+    // Behandeln Sie den Fehler
+    }
     webServer.begin();
     modbusScanner.begin();
     display.init(); 
@@ -168,7 +175,7 @@ void setup() {
         if (recipe_dropdown && lv_obj_is_valid(recipe_dropdown)) {
             lv_obj_add_flag(recipe_dropdown, LV_OBJ_FLAG_HIDDEN);
         }
-        lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+        seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
     }
 
     String ssid, password;

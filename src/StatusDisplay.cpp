@@ -5,6 +5,7 @@
 #include "TouchPanel.h"  // und andere notwendige Header
 #include "DateTimeHandler.h" // Inkluieren der neuen Datei
 
+extern DateTime now;
 void settingsBtn_event_cb(lv_event_t * e);
 void msgbox_event_cb(lv_event_t * e);
 lv_obj_t * dateTimeLabel = nullptr;
@@ -205,7 +206,7 @@ void dst_switch_event_cb(lv_event_t * e) {
     lv_obj_set_style_text_color(minuteRoller, lv_color_hex(0x000000), LV_PART_MAIN); // Schwarzer Text
     lv_obj_add_style(minuteRoller, &roller_selected_style, LV_PART_SELECTED);
 
-    DateTime now = getRTCDateTime(); // Obtain the current DateTime from RTC
+    now = getRTCDateTime(); // Obtain the current DateTime from RTC
     setDateTimeRollersToCurrent(); // Pass the 'now' as argument
 
     // DST-Switch-Designanpassungen

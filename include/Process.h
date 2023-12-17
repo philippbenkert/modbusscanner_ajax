@@ -14,7 +14,7 @@ extern lv_chart_series_t* ser;
 extern lv_chart_series_t* progress_ser;
 extern unsigned long savedEndTime;
 extern bool coolingProcessRunning;
-extern unsigned long startCoolingTime;
+extern unsigned long startTime;
 
 void ProcessFunction(lv_event_t *e);
 void readRecipesFromFile();

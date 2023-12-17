@@ -1,11 +1,9 @@
 #include "DateTimeHandler.h"
-#include <TimeLib.h>
-#include "RTCControl.h"
 #include <Preferences.h>
 #include "StatusDisplay.h"
 
-
 extern RTC_DS3231 rtc;
+extern DateTime now;
 
 Preferences preferences;
 
@@ -36,7 +34,6 @@ void updateDSTStatus() {
 void adjustForDST() {
     if (!dstEnabled) return;
 
-    DateTime now = rtc.now();
     bool isDst = checkDST(now);
 
     if (isCurrentlyDST != isDst) {
@@ -61,7 +58,6 @@ bool checkDST(DateTime now) {
 }
 
 String getDateTimeStr() {
-    DateTime now = rtc.now();
     if (!now.isValid()) {
         Serial.println("RTC is not running!");
         return "RTC Error";
@@ -74,7 +70,6 @@ String getDateTimeStr() {
 }
 
 void setDateTimeRollersToCurrent() {
-    DateTime now = rtc.now();
     if (!now.isValid()) {
         Serial.println("RTC is not running!");
         return;

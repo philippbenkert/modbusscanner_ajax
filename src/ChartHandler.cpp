@@ -11,11 +11,16 @@ extern RTC_DS3231 rtc;
 lv_chart_cursor_t* cursor = nullptr; // Globale oder statische Variable für den Cursor
 extern lv_obj_t* end_time_label;
 extern lv_obj_t* recipe_dropdown;
+lv_color_t seriesColor;
+extern DateTime now;
+
 extern void initAxisStyle();
 extern lv_style_t style;
 extern std::vector<Recipe> recipes;
 extern SDCardHandler sdCard;
 bool bootet = false;
+int logintervall = 8; // Bildschirmintervall Graf in Stunden
+int stepsperday = 24 / logintervall;
 static void customDrawSeries(lv_event_t* e) {
     auto* dsc = static_cast<lv_obj_draw_part_dsc_t*>(e->param);
     if (dsc->part == LV_PART_ITEMS) {
@@ -67,10 +72,6 @@ void createChart() {
     }
 }
 
-float formatTemperatureWithTwoDecimals(float temperature) {
-    return round(temperature * 100) / 100.0f; // Rundet die Temperatur auf zwei Nachkommastellen
-}
-
 static void chart_event_cb(lv_event_t * e) {
     lv_obj_draw_part_dsc_t * dsc = lv_event_get_draw_part_dsc(e);
     if(!lv_obj_draw_part_check_type(dsc, &lv_chart_class, LV_CHART_DRAW_PART_TICK_LABEL)) return;
@@ -83,7 +84,6 @@ static void chart_event_cb(lv_event_t * e) {
             strncpy(dsc->text, newValue.c_str(), dsc->text_length - 1); // Kopieren Sie das Ergebnis zurück
             dsc->text[dsc->text_length - 1] = '\0'; // Sicherstellen, dass der String korrekt beendet wird
         } catch (const std::exception& e) {
-            // Fehlerbehandlung, falls die Konvertierung fehlschlägt
             Serial.println("Fehler bei der Konvertierung: ");
             Serial.println(e.what());
         }
@@ -92,9 +92,6 @@ static void chart_event_cb(lv_event_t * e) {
 
 void nullCursor() {
     if (cursor) {
-        // Verstecke den Cursor
-        //lv_obj_add_flag(cursor, LV_OBJ_FLAG_HIDDEN);
-        // Optional: Setze den Zeiger auf nullptr, wenn Sie ihn vollständig zurücksetzen möchten
         cursor = nullptr;
     }
 }
@@ -105,9 +102,7 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
     createRecipeDropdown(content_container);
     createToggleCoolingButton(content_container);
-    
-
-    // Daten nur einmalig aus der DB lesen und zwischenspeichern
+    sdCard.deleteRowsWithCondition("Setpoints", 1700000000);
     static std::vector<TimeTempPair> dbData;
     static int lastSelectedRecipeIndex = -1;
     if (selectedRecipeIndex != lastSelectedRecipeIndex) {
@@ -121,13 +116,12 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
 
     for (const auto& dataPoint : dbData) {
         if (dataPoint.time <= 1700000000) {
-            float formattedTemp = formatTemperatureWithTwoDecimals(dataPoint.temperature);
+            float formattedTemp = dataPoint.temperature;
             validDataPoints.push_back(formattedTemp);
             minTemp = std::min(minTemp, static_cast<int>(formattedTemp));
             maxTemp = std::max(maxTemp, static_cast<int>(formattedTemp));
         }
     }
-
 
     if (!chart || !lv_obj_is_valid(chart)) {
         createChart();
@@ -142,10 +136,8 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         for (float temp : validDataPoints) {
             lv_chart_set_next_value(chart, ser, temp);
         }
-
         initAxisStyle();
-
-        int numLabels = (validDataPoints.size() + 3) / 4;
+        int numLabels = (validDataPoints.size() + ( stepsperday - 1 )) / stepsperday;
         lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_X, 0, 0, numLabels, 1, true, 20);
         lv_chart_set_axis_tick(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, 10, 1, true, 25);
         lv_obj_add_event_cb(chart, chart_touch_event_cb, LV_EVENT_PRESSED, nullptr);
@@ -153,13 +145,11 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
         lv_obj_add_style(chart, &style, LV_PART_TICKS);
         lv_obj_clear_flag(chart, LV_OBJ_FLAG_SCROLLABLE);
         lv_chart_refresh(chart);
-
         nullCursor();
         if (!cursor) {
             cursor = lv_chart_add_cursor(chart, lv_palette_main(LV_PALETTE_BLUE), LV_DIR_BOTTOM);
         }
     }
-
     if (coolingProcessRunning) {
         displayEndTime(savedEndTime);
     } else {
@@ -169,21 +159,13 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     updateToggleCoolingButtonText();
 }
 
-
-
 void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const std::vector<TimeTempPair>& data, unsigned long startCoolingTime) {
     if (!chart || !progress_ser) return;
 
-    unsigned long currentTime = millis();
-    unsigned long timeInterval = 4 * 60 * 60 * 1000; // 4 Stunden in Millisekunden
+    unsigned long currentTime = now.unixtime();
+    unsigned long timeInterval = logintervall * 60 * 60 * 1000;
     size_t validPointsCount = 0;
-    for (const auto& dataPoint : data) {
-        if (dataPoint.time <= 1700000000) {
-            validPointsCount++;
-        }
-    }
-    lv_chart_set_point_count(chart, validPointsCount);
-
+    
     for (size_t i = 0; i < data.size(); ++i) {
         unsigned long dataPointTime = startCoolingTime + i * timeInterval;
         if (data[i].time <= 1700000000 && dataPointTime <= currentTime) {
@@ -193,7 +175,9 @@ void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const
         }
     }
     if(!bootet) {
-            lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+            seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+                updateSeriesColor(chart, seriesColor);
+                lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
             bootet = true;
     }
 }
@@ -210,11 +194,13 @@ void chart_touch_event_cb(lv_event_t* e) {
     }
     lv_point_t p_out;
     lv_chart_get_point_pos_by_id(chart, ser, point_id, &p_out);
-
+Serial.println(point_id);
     if (point_id != LV_CHART_POINT_NONE) {
     lv_chart_set_cursor_point(chart, cursor, ser, point_id);
     }    
     if (point_id != LV_CHART_POINT_NONE) {
+Serial.println("update CursorInfo");
+
         updateCursorInfo(chart, point_id);
     }
 }
@@ -235,13 +221,13 @@ void updateCursorVisibility(lv_obj_t* chart, bool visible) {
             if (visible) {
                 lv_obj_clear_flag(recipe_dropdown, LV_OBJ_FLAG_HIDDEN); // Macht das Dropdown sichtbar
                 isDropdownVisible = true;
-                lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+                seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
                 updateSeriesColor(chart, seriesColor);
                 lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
             } else {
                 lv_obj_add_flag(recipe_dropdown, LV_OBJ_FLAG_HIDDEN); // Versteckt das Dropdown
                 isDropdownVisible = false;
-                lv_color_t seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+                seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
                 updateSeriesColor(chart, seriesColor);
                 lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
             }
@@ -267,6 +253,6 @@ float interpolate(int dayIndex, int subIndex, const Recipe& recipe) {
     }
     float startTemp = recipe.temperatures[dayIndex];
     float endTemp = recipe.temperatures[dayIndex + 1];
-    float step = (endTemp - startTemp) / 4.00; // 12 Schritte pro Tag
+    float step = (endTemp - startTemp) / logintervall; 
     return startTemp + step * subIndex;
 }

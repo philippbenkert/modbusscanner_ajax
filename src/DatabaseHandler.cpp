@@ -3,18 +3,13 @@
 #include "DateTimeHandler.h"
 #include <XMLWriter.h>
 
-extern unsigned long startCoolingTime;
+extern unsigned long startTime;
 extern SDCardHandler sdCard;
-extern RTC_DS3231 rtc;
+extern DateTime now;
+extern int modbusLogTemp; // Ihre globale Variable
+
 std::vector<TimeTempPair> readDatabaseData(const char* dbName, const std::string& tableName) {
     std::vector<TimeTempPair> data;
-
-    if (!sdCard.openDatabase(dbName)) {
-        Serial.println("Failed to open database");
-        return data;
-    }
-
-    // Rundet die Temperatur auf zwei Nachkommastellen
     std::string sql = "SELECT Timestamp, round(Temperature, 2), logTemp FROM " + tableName + ";";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(sdCard.getDb(), sql.c_str(), -1, &stmt, NULL) != SQLITE_OK) {
@@ -36,31 +31,17 @@ std::vector<TimeTempPair> readDatabaseData(const char* dbName, const std::string
     return data;
 }
 
-extern int modbusLogTemp; // Ihre globale Variable
-
 void writeSingleDataPoint(const std::string& tableName) {
-    if (!sdCard.openDatabase("/sd/setpoint.db")) {
-        Serial.println("Failed to open database");
-        return;
-    }
-
     if (!sdCard.prepareInsertStatement(tableName)) {
         Serial.println("Failed to prepare insert statement");
         return;
     }
-
-    // Ermitteln des aktuellen Zeitstempels
-    DateTime now = rtc.now();
     unsigned long currentTime = now.unixtime();
-
     sdCard.beginTransaction();
-
     int dataValue = (modbusLogTemp == 0) ? 99999 : modbusLogTemp; // Überprüfen, ob globalIntValue "leer" ist
-
     if (!sdCard.logTemperatureData(currentTime, dataValue)) {
         Serial.println("Error logging data to database");
     }
-
     sdCard.endTransaction();
 }
 
@@ -102,5 +83,3 @@ void exportDataToXML(const char* dbName, const std::string& tableName, unsigned 
     // Schließe die Datei
     file.close();
 }
-
-

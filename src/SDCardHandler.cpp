@@ -179,7 +179,8 @@ bool SDCardHandler::clearDatabaseColumn(const std::string& tableName, const std:
 }
 
 bool SDCardHandler::deleteRowsWithCondition(const std::string& tableName, unsigned long conditionValue) {
-    std::string sql = "DELETE FROM " + tableName + " WHERE Timestamp > " + std::to_string(conditionValue) + ";";
+    std::string sql = "DELETE FROM " + tableName + " WHERE CAST(Timestamp AS INTEGER) > " + std::to_string(conditionValue) + ";";
+
     return executeSQL(sql);
 }
 

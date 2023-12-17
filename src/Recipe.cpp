@@ -18,7 +18,7 @@ extern lv_obj_t* recipe_dropdown;
 lv_style_t style;
 static lv_style_t axis_style; // Stil für Achsenbeschriftungen
 extern bool coolingProcessRunning;
-extern RTC_DS3231 rtc;
+extern DateTime now;
 extern std::vector<Recipe> recipes;
 extern Preferences preferences;
 String currentDb;
@@ -41,9 +41,9 @@ void updateProgress() {
     // Lesen der Datenbank-Daten
     dbData = readDatabaseData("setpoint.db", "Setpoints");
     // Aktuelle Zeit ermitteln
-    unsigned long currentTime = rtc.now().unixtime();
+    unsigned long currentTime = now.unixtime();
     // Aktualisieren des Fortschrittscharts
-    updateProgressChart(chart, progress_ser, dbData, startCoolingTime);
+    updateProgressChart(chart, progress_ser, dbData, startTime);
     writeSingleDataPoint("Setpoints");
 }
 
@@ -121,11 +121,5 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
     int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end()) - Y_AXIS_PADDING;
     int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end()) + Y_AXIS_PADDING;
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp *1000, max_temp *1000);
-
-    if (chart_type == LV_CHART_TYPE_LINE) {
-        lv_chart_set_point_count(chart, recipe.temperatures.size() * 9); // 9 Punkte pro Tag
-    }
-
-    lv_obj_add_style(chart, style, 0);
     return chart;
 }
