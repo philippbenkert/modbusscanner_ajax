@@ -7,10 +7,14 @@
 
 struct TimeTempPair {
     unsigned long time;
-    float temperature;
+    int temperature;
+    int logtemp;
 };
 
 std::vector<TimeTempPair> readDatabaseData(const char* dbName, const std::string& tableName);
 // Weitere Funktionserklärungen
+void writeSingleDataPoint(const std::string& tableName);
+void exportDataToXML(const char* dbName, const std::string& tableName, unsigned long startCoolingTime);
+
 
 #endif // DATABASEHANDLER_H

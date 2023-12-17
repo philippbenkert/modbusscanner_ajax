@@ -9,6 +9,7 @@
 #include "WLANSettings.h"
 #include <esp_heap_caps.h>
 #include <memory>
+#include "DatabaseHandler.h"
 
 extern SDCardHandler sdCard;
 extern RTC_DS3231 rtc;
@@ -21,7 +22,6 @@ lv_chart_series_t* progress_ser = nullptr; // Datenreihe für den Fortschritt
 
 lv_obj_t* toggle_btn = nullptr;
 lv_obj_t* label = nullptr;
-lv_obj_t* label1 = nullptr;
 lv_obj_t* btn = nullptr;
 lv_obj_t* end_time_label = nullptr;
 //static lv_obj_t* end_time_label = nullptr;
@@ -76,7 +76,7 @@ void displayEndTime(unsigned long endTime) {
     // Einmalige Erstellung des Labels, falls es noch nicht existiert
     if (!end_time_label) {
         end_time_label = lv_label_create(content_container);
-        lv_obj_align(end_time_label, LV_ALIGN_OUT_BOTTOM_MID, 0, 55);
+        lv_obj_align(end_time_label, LV_ALIGN_OUT_BOTTOM_MID, 10, 55);
     }
 
     char buffer[64];
@@ -110,7 +110,6 @@ int flush_fn(struct dblog_write_context *ctx) {
 
 void startCoolingProcess() {
     if (selectedRecipeIndex < 0 || selectedRecipeIndex >= recipes.size()) {
-        Serial.println("Invalid recipe index");
         return;
     }
 
@@ -149,6 +148,11 @@ void stopCoolingProcess() {
                 }
             }
 
+    const char* dbName = "/sd/setpoints.db";
+    std::string tableName = "Setpoints";
+
+    exportDataToXML(dbName, tableName, startCoolingTime);
+    sdCard.deleteRowsWithCondition("Setpoints", 1700000000);
     updateToggleCoolingButtonText();
 }
     
@@ -172,7 +176,6 @@ void updateToggleCoolingButtonText() {
     if (!label || !lv_obj_is_valid(label)) {
         return;
     }
-    Serial.println("Buttontext setzen.");
 
     // Setzen des Button-Textes basierend auf dem KühlProcessstatus
     lv_label_set_text(label, coolingProcessRunning ? "Stoppen" : "Starten");
@@ -197,7 +200,7 @@ void toggle_cooling_btn_event_cb(lv_event_t * e) {
 
 void createToggleCoolingButton(lv_obj_t * parent) {
     toggle_btn = lv_btn_create(parent);
-    lv_obj_align(toggle_btn, LV_ALIGN_OUT_BOTTOM_MID, 170, 10); // Positionierung
+    lv_obj_align(toggle_btn, LV_ALIGN_OUT_BOTTOM_MID, 175, 5); // Positionierung
     lv_obj_add_event_cb(toggle_btn, toggle_cooling_btn_event_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_style(toggle_btn, &save_btn_style, 0); // Stil auf den Button anwenden
     lv_obj_set_size(toggle_btn, 100, 30); // Größe des Buttons anpassen
@@ -213,21 +216,6 @@ void initialize_save_btn_style() {
         lv_style_set_bg_opa(&save_btn_style, LV_OPA_COVER);
         is_save_btn_style_initialized = true;
     }
-}
-
-void showSaveConfirmationPopup() {
-    lv_obj_t* mbox = lv_msgbox_create(lv_scr_act(), "Gespeichert", "Das Rezept wurde erfolgreich gespeichert!", nullptr, true);
-    lv_obj_align(mbox, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_bg_color(mbox, lv_palette_main(LV_PALETTE_GREY), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(mbox, LV_OPA_COVER, LV_PART_MAIN);
-    // Setze einen Timer, um das Popup automatisch zu schließen
-    lv_timer_t* timer = lv_timer_create([](lv_timer_t * timer) {
-        lv_obj_t* mbox = reinterpret_cast<lv_obj_t*>(timer->user_data);
-            if(lv_obj_is_valid(mbox)) { // Überprüfen Sie die Gültigkeit des Objekts
-            lv_msgbox_close(mbox);
-            }
-            lv_timer_del(timer);
-    }, 5000, mbox); // Schließt das Popup nach 5 Sekunden
 }
 
 void saveSelectedRecipe() {
@@ -293,7 +281,7 @@ void recipe_dropdown_event_handler(lv_event_t * e) {
                                   startTemp;
 
                 unsigned long stepTime = startTime + day * 24 * 60 * 60 + step * stepDurationInSeconds;
-                if (!sdCard.logSetpointData(stepTime, tempValue)) {
+                if (!sdCard.logSetpointData(stepTime, tempValue * 1000)) {
                     Serial.println("Error logging data to database");
                     break;
                 }
@@ -303,7 +291,6 @@ void recipe_dropdown_event_handler(lv_event_t * e) {
 
         if (chart && lv_obj_is_valid(chart)) {
             saveSelectedRecipe();
-            showSaveConfirmationPopup();
             updateChartBasedOnRecipe(recipes[selectedRecipeIndex]);
         }
     }
@@ -323,7 +310,7 @@ void createRecipeDropdown(lv_obj_t *parent)
         }
         lv_dropdown_set_selected(recipe_dropdown, selectedRecipeIndex);
         lv_obj_set_size(recipe_dropdown, 150, 30); // Größe des Buttons anpassen
-        lv_obj_align(recipe_dropdown, LV_ALIGN_TOP_MID, -50, 10);
+        lv_obj_align(recipe_dropdown, LV_ALIGN_TOP_MID, -45, 5);
         lv_obj_add_event_cb(recipe_dropdown, recipe_dropdown_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
         lv_obj_add_style(recipe_dropdown, &style_no_border, 0);
         dropdown_exists = true;

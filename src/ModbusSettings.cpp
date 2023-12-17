@@ -27,6 +27,8 @@ String device = "Kein Geraet";
 String addressOptions;
 lv_obj_t* ddlist_device;
 
+int modbusLogTemp;
+
 // Definieren Sie eine Struktur für die Benutzerdaten
 struct ModbusSettingsData {
     lv_obj_t* ddlist_baudrate;

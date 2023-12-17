@@ -18,7 +18,6 @@ void updateChartBasedOnRecipe(const Recipe& recipe);
 void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const std::vector<TimeTempPair>& data, unsigned long startCoolingTime);
 void chart_touch_event_cb(lv_event_t* e);
 void updateCursorInfo(lv_obj_t* chart, uint16_t point_idx);
-void clearCursor();
 void updateCursorVisibility(lv_obj_t* chart, bool visible);
 float interpolate(int dayIndex, int subIndex, const Recipe& recipe);
 

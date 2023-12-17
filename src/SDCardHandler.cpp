@@ -56,7 +56,7 @@ bool SDCardHandler::createSetpointTable(const std::string& tableName) {
         sqlite3_free(errMsg);
         // Fahren Sie trotzdem fort, um die Tabelle zu erstellen
     }
-    std::string sql = "CREATE TABLE IF NOT EXISTS " + tableName + " (Timestamp INTEGER PRIMARY KEY, Temperature REAL);";
+    std::string sql = "CREATE TABLE IF NOT EXISTS " + tableName + " (Timestamp INTEGER PRIMARY KEY, Temperature INT, logTemp INT);";
     if (sqlite3_exec(db, sql.c_str(), 0, 0, &errMsg) != SQLITE_OK) {
         Serial.println("Fehler beim Erstellen der Setpoint-Tabelle.");
         sqlite3_free(errMsg);
@@ -67,7 +67,7 @@ bool SDCardHandler::createSetpointTable(const std::string& tableName) {
 
 bool SDCardHandler::prepareInsertStatement(const std::string& tableName) {
     char sql[128];
-    snprintf(sql, sizeof(sql), "INSERT OR REPLACE INTO %s (Timestamp, Temperature) VALUES (?, ?);", tableName.c_str());
+    snprintf(sql, sizeof(sql), "INSERT OR REPLACE INTO %s (Timestamp, Temperature, logTemp) VALUES (?, ?, ?);", tableName.c_str());
     if (sqlite3_prepare_v2(db, sql, -1, &insertStmt, NULL) != SQLITE_OK) {
         Serial.print("SQLite Error: ");
         Serial.println(sqlite3_errmsg(db));
@@ -77,6 +77,21 @@ bool SDCardHandler::prepareInsertStatement(const std::string& tableName) {
 }
 
 
+bool SDCardHandler::logTemperatureData(unsigned long timestamp, int logtemp) {
+    sqlite3_bind_int(insertStmt, 1, timestamp);
+
+    // Wenn Sie 'NULL' für 'setpoint' verwenden möchten, benutzen Sie sqlite3_bind_null
+    sqlite3_bind_null(insertStmt, 2);  // Setzt den zweiten Parameter auf NULL
+
+    sqlite3_bind_int(insertStmt, 3, logtemp);
+
+    if (sqlite3_step(insertStmt) != SQLITE_DONE) {
+        sqlite3_reset(insertStmt);
+        return false;
+    }
+    sqlite3_reset(insertStmt);
+    return true;
+}
 
 bool SDCardHandler::logSetpointData(unsigned long timestamp, float temperature) {
     sqlite3_bind_int(insertStmt, 1, timestamp);
@@ -148,7 +163,7 @@ bool SDCardHandler::openDatabase(const std::string& dbPath) {
         sqlite3_close(db);
         return false;
     }
-    createTableSQL = "CREATE TABLE IF NOT EXISTS Setpoints (Timestamp TEXT PRIMARY KEY, Temperature REAL);";
+    createTableSQL = "CREATE TABLE IF NOT EXISTS Setpoints (Timestamp TEXT PRIMARY KEY, Temperature INT, logTemp INT);";
     if (sqlite3_exec(db, createTableSQL, 0, 0, &errMsg) != SQLITE_OK) {
         Serial.println("Fehler beim Erstellen der Tabelle.");
         sqlite3_free(errMsg);
@@ -158,6 +173,21 @@ bool SDCardHandler::openDatabase(const std::string& dbPath) {
     return true;
 }
 
+bool SDCardHandler::clearDatabaseColumn(const std::string& tableName, const std::string& columnName) {
+    std::string sql = "UPDATE " + tableName + " SET " + columnName + " = NULL;";
+    return executeSQL(sql);
+}
 
-    
+bool SDCardHandler::deleteRowsWithCondition(const std::string& tableName, unsigned long conditionValue) {
+    std::string sql = "DELETE FROM " + tableName + " WHERE Timestamp > " + std::to_string(conditionValue) + ";";
+    return executeSQL(sql);
+}
 
+bool SDCardHandler::executeSQL(const std::string& sql) {
+    if (sqlite3_exec(db, sql.c_str(), 0, 0, NULL) != SQLITE_OK) {
+        Serial.print("SQLite Fehler: ");
+        Serial.println(sqlite3_errmsg(db));
+        return false;
+    }
+    return true;
+}

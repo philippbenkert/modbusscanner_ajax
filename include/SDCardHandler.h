@@ -34,10 +34,14 @@ public:
     bool createSetpointTable(const std::string& tableName);
     bool prepareInsertStatement(const std::string& tableName);
     bool logSetpointData(unsigned long timestamp, float temperature);
+    bool logTemperatureData(unsigned long timestamp, int logTemp);
     bool clearTable(const std::string& tableName);
     void beginTransaction();
     void endTransaction();
     sqlite3* getDb() const {
         return db;
     }
+    bool clearDatabaseColumn(const std::string& tableName, const std::string& columnName);
+    bool deleteRowsWithCondition(const std::string& tableName, unsigned long conditionValue);
+    bool executeSQL(const std::string& sql);
 };

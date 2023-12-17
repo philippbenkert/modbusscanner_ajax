@@ -22,33 +22,29 @@ extern RTC_DS3231 rtc;
 extern std::vector<Recipe> recipes;
 extern Preferences preferences;
 String currentDb;
-void clearCursor();
 
 // Funktion, um den Fortschritt zu berechnen
 int calculateCoolingProgress(unsigned long currentTime, unsigned long startCoolingTime, const Recipe& recipe) {
-    unsigned long elapsedSeconds = currentTime - startCoolingTime;
-    int daysProgressed = elapsedSeconds / 86400; // 86400 Sekunden pro Tag
-
-    // Begrenze die Anzahl der Tage auf die Länge des Rezepts
-    if (daysProgressed >= recipe.temperatures.size()) {
-        daysProgressed = recipe.temperatures.size() - 1;
-    }
-
-    return daysProgressed;
+  int daysProgressed; // Deklaration von daysProgressed
+  daysProgressed = currentTime - startCoolingTime; // Initialisierung 
+  daysProgressed = daysProgressed / 86400; // 86400 Sekunden pro Tag
+  // Begrenze die Anzahl der Tage auf die Länge des Rezepts
+  if (daysProgressed >= recipe.temperatures.size()) {
+    daysProgressed = recipe.temperatures.size(); 
+  }
+  return daysProgressed; // Rückgabe des Ergebnisses
 }
+
 void updateProgress() {
-    Serial.println("Updatevorgang gestartet.");
     // Lesen des aktuellen Datenbanknamens aus den Preferences
     
     // Lesen der Datenbank-Daten
-    dbData = readDatabaseData("/sd/setpoint.db", "Setpoints");
+    dbData = readDatabaseData("setpoint.db", "Setpoints");
     // Aktuelle Zeit ermitteln
     unsigned long currentTime = rtc.now().unixtime();
-    Serial.println(currentTime);
-
     // Aktualisieren des Fortschrittscharts
-    Serial.println("UpdateChart gestartet.");
     updateProgressChart(chart, progress_ser, dbData, startCoolingTime);
+    writeSingleDataPoint("Setpoints");
 }
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
@@ -124,7 +120,7 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
 
     int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end()) - Y_AXIS_PADDING;
     int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end()) + Y_AXIS_PADDING;
-    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp, max_temp);
+    lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, min_temp *1000, max_temp *1000);
 
     if (chart_type == LV_CHART_TYPE_LINE) {
         lv_chart_set_point_count(chart, recipe.temperatures.size() * 9); // 9 Punkte pro Tag
@@ -132,14 +128,4 @@ lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe
 
     lv_obj_add_style(chart, style, 0);
     return chart;
-}
-
-void clearLabels(std::vector<lv_obj_t*>& labels) {
-    for (auto& label : labels) {
-        if (label && lv_obj_is_valid(label)) {
-            lv_obj_del(label);
-            label = nullptr;
-        }
-    }
-    labels.clear();
 }
