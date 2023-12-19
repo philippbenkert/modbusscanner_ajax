@@ -138,17 +138,18 @@ void stopCoolingProcess() {
     preferences.end();
 
     if (chart && progress_ser) {
-                lv_chart_set_point_count(chart, lv_chart_get_point_count(chart));
-                ///for (int i = 0; i < lv_chart_get_point_count(chart); i++) {
-                ///    lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
-                ///}
-            }
+        lv_chart_set_point_count(chart, lv_chart_get_point_count(chart));
+        for (int i = 0; i < lv_chart_get_point_count(chart); i++) {
+                lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
+        }
+    }
 
     const char* dbName = "/sd/setpoints.db";
     std::string tableName = "Setpoints";
 
     exportDataToXML(dbName, tableName, startTime);
     updateToggleCoolingButtonText();
+    
 }
     
 

@@ -106,6 +106,8 @@ void updateSeriesColor(lv_obj_t* chart, lv_color_t color) {
     if (ser && chart && lv_obj_is_valid(chart)) {
         lv_chart_set_series_color(chart, ser, color);
     }
+    if (progress_ser && chart && lv_obj_is_valid(chart)) {
+    }
 }
 
 lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe& recipe, lv_style_t* style) {

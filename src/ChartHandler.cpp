@@ -63,11 +63,10 @@ void createChart() {
         lv_obj_add_style(chart, &style_axis, LV_PART_TICKS);
         lv_obj_add_style(chart, &chartStyle, LV_PART_ITEMS);
         lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
-        progress_ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
         ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
-        lv_obj_add_event_cb(chart, customDrawSeries, LV_EVENT_DRAW_PART_BEGIN, progress_ser);
+        progress_ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
         lv_obj_add_event_cb(chart, customDrawSeries, LV_EVENT_DRAW_PART_BEGIN, ser);
-        lv_chart_set_series_color(chart, progress_ser, lv_color_make(255, 0, 0)); // RGB für Rot
+        lv_obj_add_event_cb(chart, customDrawSeries, LV_EVENT_DRAW_PART_BEGIN, progress_ser);
     }
 }
 
@@ -193,7 +192,6 @@ void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const
             dataIndex++;
         }
     }
-
     lv_chart_refresh(chart);
 }
 
