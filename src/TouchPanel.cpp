@@ -207,14 +207,14 @@ void LGFX::lvgl_init()
 void LGFX::lvgl_tick() {
 }
 
-void checkStandby() {
+void LGFX::checkStandby() {
     if (!isDisplayInStandby && millis() - lastActivityTime > STANDBY_TIMEOUT) {
         // Hintergrundbeleuchtung ausschalten
-        display.setBrightness(0);
+        setBrightness(0);
         isDisplayInStandby = true;
     }
 }
-void checkTouch() {
+void LGFX::checkTouch() {
     lv_task_handler();
 }
 

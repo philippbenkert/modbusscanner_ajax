@@ -16,5 +16,6 @@ void init_temp_line_style();
 void updateCursorVisibility(lv_obj_t* chart, bool visible);
 void updateSeriesColor(lv_obj_t* chart, lv_color_t color);
 const Recipe& getCurrentRecipe();
+void updateProgress();
 
 #endif // RECIPE_H

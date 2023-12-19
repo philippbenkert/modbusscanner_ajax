@@ -119,7 +119,7 @@ void startCoolingProcess() {
     unsigned long processDuration = (selectedRecipe.temperatures.size() - 1) * 24 * 60 * 60;
     unsigned long endTime = startTime + processDuration;
     displayEndTime(endTime);
-
+    updateProgress();
     // Status in den Festspeicher speichern
     preferences.begin("process", false);
     preferences.putInt("coolingProcess", 1);
@@ -243,18 +243,17 @@ void recipe_dropdown_event_handler(lv_event_t * e) {
         return;
         }
         const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
-        int stepsPerDay = stepsperday; // 24 Stunden / 6 Stunden pro Schritt = 4 Schritte pro Tag
-        int stepDurationInSeconds = logintervall * 60 * 60; // 6 Stunden in Sekunden
+        int stepDurationInSeconds = logintervall * 60 * 60; 
         for (size_t day = 0; day < selectedRecipe.temperatures.size(); day++) {
             float startTemp = selectedRecipe.temperatures[day];
             float endTemp = (day < selectedRecipe.temperatures.size() - 1) ? selectedRecipe.temperatures[day + 1] : startTemp;
 
-            for (int step = 0; step < stepsPerDay; step++) {
+            for (int step = 0; step < stepsperday; step++) {
                 // Am letzten Tag nur einen Sollwert setzen (den Endwert des Rezepts)
                 if (day == selectedRecipe.temperatures.size() - 1 && step > 0) break;
 
                 float tempValue = (day < selectedRecipe.temperatures.size() - 1) ? 
-                                  startTemp + ((endTemp - startTemp) * step / stepsPerDay) : 
+                                  startTemp + ((endTemp - startTemp) * step / stepsperday) : 
                                   startTemp;
 
                 unsigned long stepTime = 0 + day * 24 * 60 * 60 + step * stepDurationInSeconds;

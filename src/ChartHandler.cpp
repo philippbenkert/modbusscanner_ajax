@@ -18,7 +18,7 @@ extern lv_style_t style;
 extern std::vector<Recipe> recipes;
 extern SDCardHandler sdCard;
 bool bootet = false;
-int logintervall = 8; // Bildschirmintervall Graf in Stunden
+int logintervall = 2; // Bildschirmintervall Graf in Stunden
 int stepsperday = 24 / logintervall;
 static void customDrawSeries(lv_event_t* e) {
     auto* dsc = static_cast<lv_obj_draw_part_dsc_t*>(e->param);
@@ -67,7 +67,7 @@ void createChart() {
         ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
         lv_obj_add_event_cb(chart, customDrawSeries, LV_EVENT_DRAW_PART_BEGIN, progress_ser);
         lv_obj_add_event_cb(chart, customDrawSeries, LV_EVENT_DRAW_PART_BEGIN, ser);
-        
+        lv_chart_set_series_color(chart, progress_ser, lv_color_make(255, 0, 0)); // RGB für Rot
     }
 }
 
@@ -162,24 +162,39 @@ void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const
     if (!chart || !progress_ser) return;
 
     unsigned long currentTime = now.unixtime();
-    unsigned long timeInterval = logintervall * 60 * 60 * 1000;
+    Serial.println(currentTime);
     size_t validPointsCount = 0;
-    
-    for (size_t i = 0; i < data.size(); ++i) {
-        unsigned long dataPointTime = startCoolingTime + i * timeInterval;
-        if (data[i].time <= 1700000000 && dataPointTime <= currentTime) {
-            lv_chart_set_next_value(chart, progress_ser, data[i].temperature);
-        } else {
-            lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
+
+    // Zähle gültige Punkte
+    for (const auto& dataPoint : data) {
+        if (dataPoint.time < 1700000000) {
+            validPointsCount++;
         }
     }
-    if(!bootet) {
-            seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
-                updateSeriesColor(chart, seriesColor);
-                lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
-            bootet = true;
+    Serial.println(validPointsCount);
+
+    // Setze die Gesamtanzahl der Punkte im Chart
+    lv_chart_set_point_count(chart, validPointsCount);
+
+    // Setze alle Punkte in progress_ser auf LV_CHART_POINT_NONE
+    for (size_t i = 0; i < validPointsCount; ++i) {
+        lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
     }
-    lv_chart_set_series_color(chart, progress_ser, lv_color_make(255, 0, 0)); // RGB für Rot
+
+    // Füge die Datenpunkte zum Diagramm hinzu
+    size_t dataIndex = 0;
+    for (size_t i = 0; i < validPointsCount; ++i) {
+        if (data[dataIndex].time < 1700000000) {
+            unsigned long dataPointTime = startCoolingTime + data[dataIndex].time;
+            if (dataPointTime <= currentTime) {
+                lv_chart_set_value_by_id(chart, progress_ser, i, data[dataIndex].temperature);
+                Serial.println(data[dataIndex].temperature);
+            }
+            dataIndex++;
+        }
+    }
+
+    lv_chart_refresh(chart);
 }
 
 void chart_touch_event_cb(lv_event_t* e) {

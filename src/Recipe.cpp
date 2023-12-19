@@ -22,6 +22,7 @@ extern DateTime now;
 extern std::vector<Recipe> recipes;
 extern Preferences preferences;
 String currentDb;
+extern int modbusLogTemp; // Ihre globale Variable
 
 // Funktion, um den Fortschritt zu berechnen
 int calculateCoolingProgress(unsigned long currentTime, unsigned long startCoolingTime, const Recipe& recipe) {
@@ -40,11 +41,9 @@ void updateProgress() {
     
     // Lesen der Datenbank-Daten
     dbData = readDatabaseData("setpoint.db", "Setpoints");
-    // Aktuelle Zeit ermitteln
-    unsigned long currentTime = now.unixtime();
     // Aktualisieren des Fortschrittscharts
     updateProgressChart(chart, progress_ser, dbData, startTime);
-    writeSingleDataPoint("Setpoints");
+    writeSingleDataPoint("Setpoints", modbusLogTemp, now.unixtime());
 }
 
 lv_obj_t* createLabel(lv_obj_t* parent, const char* text, lv_coord_t x, lv_coord_t y) {
@@ -102,8 +101,6 @@ const Recipe& getCurrentRecipe() {
         return default_recipe;
     }
 }
-
-
 
 void updateSeriesColor(lv_obj_t* chart, lv_color_t color) {
     if (ser && chart && lv_obj_is_valid(chart)) {

@@ -157,6 +157,7 @@ void setup() {
     updateDSTStatus(); // Aktualisiere den Systemstatus entsprechend
     readRecipesFromFile();
     loadCoolingProcessStatus();
+    
     sdCard.init();
 
     // Öffnen der Datenbank
@@ -164,6 +165,7 @@ void setup() {
     Serial.println("Fehler beim Öffnen der Datenbank.");
     // Behandeln Sie den Fehler
     }
+    
     webServer.begin();
     modbusScanner.begin();
     display.init(); 
@@ -181,10 +183,13 @@ void setup() {
     if (loadSTACredentials(lastSSID, lastPassword)) {
         connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
     }
-    modbusScanner.begin();
-
     xTaskCreatePinnedToCore(wifiTask, "WiFi Task", 10000, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(uiModbusTask, "UI Modbus Task", 10000, NULL, 1, NULL, 1);
+    
+    modbusScanner.begin();
+    seriesColor = coolingProcessRunning ? lv_color_make(192, 192, 192) : lv_palette_main(LV_PALETTE_GREEN);
+    updateSeriesColor(chart, seriesColor);
+    
 }
     
 void loop() {
