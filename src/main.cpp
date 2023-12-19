@@ -23,7 +23,6 @@
 RTC_DS3231 rtc;
 DateTime now;
 unsigned long lastTime = 0;
-LGFX display;
 SDCardHandler sdCard;
 WebServer webServer;
 OTAUpdates otaUpdates;
@@ -99,7 +98,7 @@ void wifiTask(void *parameter) {
     for (;;) {
 
         lv_task_handler();
-        checkStandby();
+        display.checkStandby();
         if (millis() - lastTime > 1000) {
         lastTime = millis();
         now = rtc.now(); // Aktualisiere die globale Variable `now`

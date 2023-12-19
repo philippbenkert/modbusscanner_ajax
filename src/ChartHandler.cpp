@@ -7,7 +7,6 @@
 #include "Recipe.h"
 #include "DateTimeHandler.h"
 
-extern RTC_DS3231 rtc;
 lv_chart_cursor_t* cursor = nullptr; // Globale oder statische Variable für den Cursor
 extern lv_obj_t* end_time_label;
 extern lv_obj_t* recipe_dropdown;
@@ -180,6 +179,7 @@ void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const
                 lv_chart_refresh(chart); // Aktualisieren Sie das Chart, um die Änderungen anzuzeigen
             bootet = true;
     }
+    lv_chart_set_series_color(chart, progress_ser, lv_color_make(255, 0, 0)); // RGB für Rot
 }
 
 void chart_touch_event_cb(lv_event_t* e) {

@@ -5,8 +5,6 @@
 #include <LittleFS.h>
 #include "lvgl.h"  // LVGL-Bibliothek einbinden
 
-// SD CARD - SPI
-
 // Portrait
 #define TFT_WIDTH   320
 #define TFT_HEIGHT  480
@@ -28,14 +26,7 @@ public:
     void lvgl_init();  // Initialisiert LVGL
     void lvgl_tick();
       // Muss regelmäßig aufgerufen werden, um LVGL zu aktualisieren
+    void checkTouch();
+    void checkStandby();
 };
-
-// Deklaration der globalen Funktionen
-void checkTouch();
-void updateButtonStyles();
-//void wlanSettingsFunction(lv_event_t * event);
-//void modbusSettingsFunction(lv_event_t * event);
-//void ProcessFunction(lv_event_t * event);
-//void scanFunctionsFunction(lv_event_t * event);
-void checkStandby();
-extern LGFX display;
+extern LGFX display; // Externe Deklaration der display-Instanz

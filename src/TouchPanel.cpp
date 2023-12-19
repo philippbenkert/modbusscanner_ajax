@@ -14,6 +14,7 @@
 uint32_t lastActivityTime = 0;
 bool isDisplayInStandby = false;
 const uint32_t STANDBY_TIMEOUT = 30000; // 30 Sekunden
+LGFX display;
 
 void* my_open_cb(lv_fs_drv_t * drv, const char * path, lv_fs_mode_t mode);
 lv_fs_res_t my_close_cb(lv_fs_drv_t * drv, void * file_p);
