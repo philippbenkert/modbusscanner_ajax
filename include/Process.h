@@ -16,16 +16,12 @@ extern unsigned long savedEndTime;
 extern bool coolingProcessRunning;
 extern unsigned long startTime;
 
+extern void saveSelectedRecipe();
 void ProcessFunction(lv_event_t *e);
 void readRecipesFromFile();
-void recipe_dropdown_event_handler(lv_event_t* e);
 void updateChartBasedOnRecipe(const Recipe& recipe);
 void clearLabels(std::vector<lv_obj_t*>& labels);
-void createRecipeDropdown(lv_obj_t* parent);
-void createToggleCoolingButton(lv_obj_t * parent);
 void loadCoolingProcessStatus();
-void updateToggleCoolingButtonText();
 void displayEndTime(unsigned long endTime);
-void updateRecipeDropdownState();
 
 #endif

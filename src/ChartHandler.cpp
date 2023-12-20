@@ -6,6 +6,7 @@
 #include "DatabaseHandler.h"
 #include "Recipe.h"
 #include "DateTimeHandler.h"
+#include "ToggleButtons.h"
 
 lv_chart_cursor_t* cursor = nullptr; // Globale oder statische Variable für den Cursor
 extern lv_obj_t* end_time_label;

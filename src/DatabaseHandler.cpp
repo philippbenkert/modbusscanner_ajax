@@ -53,10 +53,10 @@ void exportDataToXML(const std::string& dbName, const std::string& tableName, un
                 xml.tagOpen("DataPoint");
                 xml.writeNode("Timestamp", String(pair.time).c_str());
                 xml.writeNode("LogTemp", String(pair.logtemp).c_str());
-                xml.tagClose();
+                xml.tagClose("");
             }
         }
-        xml.tagClose();
+        xml.tagClose("Data");
         file.close();
     } else {
         Serial.println("Error opening file for XML export");
