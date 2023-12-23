@@ -11,7 +11,6 @@
 extern SDCardHandler sdCard;
 extern Preferences preferences;
 std::vector<Recipe> recipes;
-lv_obj_t* chart = nullptr;
 lv_chart_series_t* ser = nullptr;
 
 lv_obj_t* end_time_label = nullptr;

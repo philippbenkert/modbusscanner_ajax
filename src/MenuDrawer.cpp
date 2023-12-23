@@ -7,6 +7,7 @@
 #include "RTCControl.h"
 #include "StatusDisplay.h"
 #include "Process.h"
+#include "WLANSettings.h"
 
 int activeButtonIndex = -1; // Anfangs ist kein Button aktiv
 
@@ -21,12 +22,19 @@ bool isMenuLocked = false;
 // Externe Verweise
 extern SDCardHandler sdCard;
 WebSocketHandler webSocketHandler;
+extern WLANSettings wlanSettings;
 
 // Implementierung von drawMenu
 std::vector<uint8_t*> imageBuffers;
 
+// Wrapper-Funktion
+void wlanSettingsWrapper(lv_event_t *e) {
+    wlanSettings.wlanSettingsFunction(e);
+}
+
+// Verwendung in Ihrem MenuItem-Array
 MenuItem menuItems[] = {
-    {"/wifi.png", wlanSettingsFunction},
+    {"/wifi.png", wlanSettingsWrapper},
     {"/modbus.png", modbusSettingsFunction},
     {"/folder.png", ProcessFunction},
     {"/scan.png", scanFunctionsFunction},

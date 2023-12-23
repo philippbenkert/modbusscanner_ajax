@@ -27,7 +27,6 @@ void setupContentContainer();
 void clear_all_timers();
 
 // Event-Handler-Funktionen für das Menü
-void wlanSettingsFunction(lv_event_t * e);
 void modbusSettingsFunction(lv_event_t * e);
 void ProcessFunction(lv_event_t * e);
 void scanFunctionsFunction(lv_event_t * e);

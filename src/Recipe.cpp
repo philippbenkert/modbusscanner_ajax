@@ -8,20 +8,15 @@
 #include "DatabaseHandler.h"
 #include "ChartHandler.h"
 #include "CommonDefinitions.h"
+#include "UIHandler.h"
 
-const int Y_LABEL_OFFSET = 30;
-extern std::vector<Recipe> recipes;
-std::vector<lv_obj_t*> x_axis_labels;
-std::vector<lv_obj_t*> temp_labels;
-lv_obj_t* cursor_info_label;
+extern WLANSettings wlanSettings;
+extern UIHandler uiHandler;
 extern lv_obj_t* recipe_dropdown;
 lv_style_t style;
-static lv_style_t axis_style; // Stil für Achsenbeschriftungen
-extern bool coolingProcessRunning;
 extern DateTime now;
 extern std::vector<Recipe> recipes;
 extern Preferences preferences;
-String currentDb;
 extern int modbusLogTemp; // Ihre globale Variable
 
 // Funktion, um den Fortschritt zu berechnen
@@ -111,11 +106,11 @@ void updateSeriesColor(lv_obj_t* chart, lv_color_t color) {
 }
 
 lv_obj_t* createChart(lv_obj_t* parent, lv_chart_type_t chart_type, const Recipe& recipe, lv_style_t* style) {
-    lv_obj_t* chart = lv_chart_create(parent);
+    chart = lv_chart_create(parent);
     lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
     lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -5);
     lv_chart_set_type(chart, chart_type);
-    lv_obj_add_style(chart, &style_no_border, 0);
+    lv_obj_add_style(chart, &wlanSettings.style_no_border, 0);
 
     int min_temp = *std::min_element(recipe.temperatures.begin(), recipe.temperatures.end()) - Y_AXIS_PADDING;
     int max_temp = *std::max_element(recipe.temperatures.begin(), recipe.temperatures.end()) + Y_AXIS_PADDING;

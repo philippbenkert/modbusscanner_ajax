@@ -6,7 +6,9 @@
 #include <Preferences.h>
 #include "WLANSettings.h"
 #include "modbusScanner.h"
+#include "ChartHandler.h"
 
+extern WLANSettings wlanSettings;
 extern Preferences preferences;
 extern WebSocketHandler webSocketHandler;
 extern bool loadCredentials(String& ssid, String& password);
@@ -157,7 +159,7 @@ void modbusSettingsFunction(lv_event_t * e) {
         // Setzen der Dropdown-Optionen
         lv_dropdown_set_options(ddlist_device, dropdownOptions.c_str());
         lv_obj_align(ddlist_device, LV_ALIGN_TOP_LEFT, 75, 0);
-        lv_obj_add_style(ddlist_device, &style_no_border, 0);
+        lv_obj_add_style(ddlist_device, &wlanSettings.style_no_border, 0);
         lv_obj_set_size(ddlist_device, 195, 30);
 
         // Label für Baudrate
@@ -169,7 +171,7 @@ void modbusSettingsFunction(lv_event_t * e) {
         lv_obj_t * ddlist_baudrate = lv_dropdown_create(content_container);
         lv_dropdown_set_options(ddlist_baudrate, "9600\n19200\n38400\n57600\n115200");
         lv_obj_align(ddlist_baudrate, LV_ALIGN_TOP_LEFT, 75, 130);
-        lv_obj_add_style(ddlist_baudrate, &style_no_border, 0);
+        lv_obj_add_style(ddlist_baudrate, &wlanSettings.style_no_border, 0);
         lv_obj_set_size(ddlist_baudrate, 75, 30);
 
         // Label für Stopbits
@@ -181,7 +183,7 @@ void modbusSettingsFunction(lv_event_t * e) {
         lv_obj_t * ddlist_stopbits = lv_dropdown_create(content_container);
         lv_dropdown_set_options(ddlist_stopbits, "1\n2");
         lv_obj_align(ddlist_stopbits, LV_ALIGN_TOP_LEFT, 225, 130);
-        lv_obj_add_style(ddlist_stopbits, &style_no_border, 0);
+        lv_obj_add_style(ddlist_stopbits, &wlanSettings.style_no_border, 0);
         lv_obj_set_size(ddlist_stopbits, 45, 30);
 
         // Label für Parität
@@ -193,7 +195,7 @@ void modbusSettingsFunction(lv_event_t * e) {
         lv_obj_t * ddlist_parity = lv_dropdown_create(content_container);
         lv_dropdown_set_options(ddlist_parity, "None\nEven\nOdd");
         lv_obj_align(ddlist_parity, LV_ALIGN_TOP_LEFT, 75, 167);
-        lv_obj_add_style(ddlist_parity, &style_no_border, 0);
+        lv_obj_add_style(ddlist_parity, &wlanSettings.style_no_border, 0);
         lv_obj_set_size(ddlist_parity, 75, 30);
 
         // Label für Adresse
@@ -213,7 +215,7 @@ void modbusSettingsFunction(lv_event_t * e) {
         }
         lv_dropdown_set_options(ddlist_address, addressOptions.c_str());
         lv_obj_align(ddlist_address, LV_ALIGN_TOP_LEFT, 225, 167);
-        lv_obj_add_style(ddlist_address, &style_no_border, 0);
+        lv_obj_add_style(ddlist_address, &wlanSettings.style_no_border, 0);
         lv_obj_set_size(ddlist_address, 45, 30);
         // Label für Standardeinstellungen
         lv_obj_t * label_default = lv_label_create(content_container);

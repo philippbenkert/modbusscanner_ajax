@@ -4,7 +4,10 @@
 #include "lvgl.h"  // LVGL-Bibliothek einbinden
 #include "MenuDrawer.h"
 #include "Process.h"
+#include "WLANSettings.h"
 
+
+extern WLANSettings wlanSettings;
 
 #define TFT_WHITE 0xFFFF
 #define TFT_BLACK 0x0000
@@ -197,7 +200,7 @@ void LGFX::lvgl_init()
         activeButtonIndex = 2;
         updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
     } else {
-        wlanSettingsFunction(&tempEvent); // Aufrufen der Funktion
+        wlanSettings.wlanSettingsFunction(&tempEvent); // Aufrufen der Funktion
         activeButtonIndex = 0;
         updateButtonStyles(); // Aktualisieren der Stile nach dem Erstellen der Menü-Buttons
     }

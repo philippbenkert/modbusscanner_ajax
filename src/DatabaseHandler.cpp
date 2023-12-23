@@ -62,3 +62,26 @@ void exportDataToXML(const std::string& dbName, const std::string& tableName, un
         Serial.println("Error opening file for XML export");
     }
 }
+
+void exportDataToCSV(const std::string& dbName, const std::string& tableName, unsigned long startCoolingTime) {
+    std::vector<TimeTempPair> data = readDatabaseData(dbName, tableName);
+    std::string filename = "/sd/" + std::to_string(startCoolingTime) + ".csv";
+    File file = sdCard.open(filename.c_str(), FILE_WRITE);
+
+    if (file) {
+        // Schreibe den CSV-Header
+        file.println("Timestamp,LogTemp");
+
+        // Schreibe die Datenpunkte
+        for (const auto& pair : data) {
+            if (pair.time > 1700000000) {
+                file.print(String(pair.time).c_str());
+                file.print(",");
+                file.println(String(pair.logtemp).c_str());
+            }
+        }
+        file.close();
+    } else {
+        Serial.println("Error opening file for CSV export");
+    }
+}

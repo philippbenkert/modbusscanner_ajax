@@ -7,16 +7,20 @@
 #include "Recipe.h"
 #include "DateTimeHandler.h"
 #include "ToggleButtons.h"
+#include "UIHandler.h"
 
+extern UIHandler uiHandler;
+extern WLANSettings wlanSettings;
+lv_obj_t* chart = nullptr;
 lv_chart_cursor_t* cursor = nullptr; // Globale oder statische Variable für den Cursor
 extern lv_obj_t* end_time_label;
+lv_obj_t* cursor_info_label = nullptr;
 extern lv_obj_t* recipe_dropdown;
 lv_color_t seriesColor;
 extern DateTime now;
 
 extern void initAxisStyle();
 extern lv_style_t style;
-extern std::vector<Recipe> recipes;
 extern SDCardHandler sdCard;
 bool bootet = false;
 int logintervall = 2; // Bildschirmintervall Graf in Stunden
@@ -37,7 +41,7 @@ void createChart() {
         static lv_style_t style_axis;
 
     chart = lv_chart_create(content_container);
-    lv_obj_add_style(chart, &style_no_border, 0);
+    lv_obj_add_style(chart, &wlanSettings.style_no_border, 0);
     lv_obj_set_size(chart, TFT_WIDTH - 60, 170);
     lv_obj_align(chart, LV_ALIGN_BOTTOM_MID, 10, -10);
     cursor_info_label = lv_label_create(chart);
@@ -45,7 +49,7 @@ void createChart() {
     lv_obj_set_size(cursor_info_label, 95, 30);
     lv_obj_align(cursor_info_label, LV_ALIGN_TOP_RIGHT, -10, 10);
     lv_obj_add_flag(cursor_info_label, LV_OBJ_FLAG_HIDDEN);
-    initialize_style_no_border();
+    uiHandler.initialize_style_no_border();
 
     if (!isaxisStyleInitialized) {
         lv_style_init(&style_axis);
@@ -101,7 +105,7 @@ void updateChartBasedOnRecipe(const Recipe& recipe) {
     lv_obj_clear_flag(content_container, LV_OBJ_FLAG_SCROLLABLE);
     createRecipeDropdown(content_container);
     createToggleCoolingButton(content_container);
-    sdCard.deleteRowsWithCondition("Setpoints", 1700000000);
+    
     static std::vector<TimeTempPair> dbData;
     static int lastSelectedRecipeIndex = -1;
     if (selectedRecipeIndex != lastSelectedRecipeIndex) {
@@ -162,25 +166,19 @@ void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const
     if (!chart || !progress_ser) return;
 
     unsigned long currentTime = now.unixtime();
-    Serial.println(currentTime);
     size_t validPointsCount = 0;
-
     // Zähle gültige Punkte
     for (const auto& dataPoint : data) {
         if (dataPoint.time < 1700000000) {
             validPointsCount++;
         }
     }
-    Serial.println(validPointsCount);
-
     // Setze die Gesamtanzahl der Punkte im Chart
     lv_chart_set_point_count(chart, validPointsCount);
-
     // Setze alle Punkte in progress_ser auf LV_CHART_POINT_NONE
     for (size_t i = 0; i < validPointsCount; ++i) {
         lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
     }
-
     // Füge die Datenpunkte zum Diagramm hinzu
     size_t dataIndex = 0;
     for (size_t i = 0; i < validPointsCount; ++i) {
@@ -188,7 +186,6 @@ void updateProgressChart(lv_obj_t* chart, lv_chart_series_t* progress_ser, const
             unsigned long dataPointTime = startCoolingTime + data[dataIndex].time;
             if (dataPointTime <= currentTime) {
                 lv_chart_set_value_by_id(chart, progress_ser, i, data[dataIndex].temperature);
-                Serial.println(data[dataIndex].temperature);
             }
             dataIndex++;
         }
@@ -208,13 +205,10 @@ void chart_touch_event_cb(lv_event_t* e) {
     }
     lv_point_t p_out;
     lv_chart_get_point_pos_by_id(chart, ser, point_id, &p_out);
-Serial.println(point_id);
     if (point_id != LV_CHART_POINT_NONE) {
     lv_chart_set_cursor_point(chart, cursor, ser, point_id);
     }    
     if (point_id != LV_CHART_POINT_NONE) {
-Serial.println("update CursorInfo");
-
         updateCursorInfo(chart, point_id);
     }
 }

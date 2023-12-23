@@ -9,15 +9,14 @@
 #include "TouchPanel.h"
 #include "WLANSettings.h"
 
+extern WLANSettings wlanSettings;
 extern SDCardHandler sdCard;
 extern DateTime now;
 extern std::vector<Recipe> recipes;
-extern lv_obj_t* chart;
 lv_obj_t* recipe_dropdown = nullptr;
 lv_chart_series_t* progress_ser = nullptr; // Datenreihe für den Fortschritt
 extern int selectedRecipeIndex;
 extern bool coolingProcessRunning;
-extern unsigned long savedEndTime;
 extern Preferences preferences;
 extern int logintervall;
 extern int stepsperday;
@@ -48,8 +47,6 @@ void updateToggleCoolingButtonText() {
     if (!label || !lv_obj_is_valid(label)) {
         return;
     }
-
-    // Setzen des Button-Textes basierend auf dem KühlProcessstatus
     lv_label_set_text(label, coolingProcessRunning ? "Stoppen" : "Starten");
 }
 
@@ -81,13 +78,10 @@ void startCoolingProcess() {
     updateToggleCoolingButtonText();
     const Recipe& selectedRecipe = recipes[selectedRecipeIndex];
     startTime = now.unixtime();
-
-    // Endzeit berechnen und anzeigen
     unsigned long processDuration = (selectedRecipe.temperatures.size() - 1) * 24 * 60 * 60;
     unsigned long endTime = startTime + processDuration;
     displayEndTime(endTime);
     updateProgress();
-    // Status in den Festspeicher speichern
     preferences.begin("process", false);
     preferences.putInt("coolingProcess", 1);
     preferences.putULong("endTime", endTime);
@@ -97,36 +91,27 @@ void startCoolingProcess() {
 
 void stopCoolingProcess() {
     coolingProcessRunning = false;
-    preferences.begin("process", true);
-    preferences.end();
     preferences.begin("process", false);
     preferences.putInt("coolingProcess", 0);
-    
     preferences.end();
-
     if (chart && progress_ser) {
         lv_chart_set_point_count(chart, lv_chart_get_point_count(chart));
         for (int i = 0; i < lv_chart_get_point_count(chart); i++) {
                 lv_chart_set_next_value(chart, progress_ser, LV_CHART_POINT_NONE);
         }
     }
-
     const char* dbName = "/sd/setpoints.db";
     std::string tableName = "Setpoints";
-
     exportDataToXML(dbName, tableName, startTime);
     updateToggleCoolingButtonText();
-    
 }
 
 void confirm_cooling_stop_cb(lv_event_t * e) {
     lv_obj_t* mbox = reinterpret_cast<lv_obj_t*>(lv_event_get_user_data(e));
     const char* btn_text = lv_msgbox_get_active_btn_text(mbox);
     if (strcmp(btn_text, "OK") == 0) {
-        // "OK" wurde gedrückt, stoppe den KühlProcess
         stopCoolingProcess();
     }
-    // Schließe das Popup in beiden Fällen
     lv_msgbox_close(mbox);
 }
 
@@ -146,7 +131,7 @@ void createRecipeDropdown(lv_obj_t *parent)
         lv_obj_set_size(recipe_dropdown, 150, 30); // Größe des Buttons anpassen
         lv_obj_align(recipe_dropdown, LV_ALIGN_TOP_MID, -45, 5);
         lv_obj_add_event_cb(recipe_dropdown, recipe_dropdown_event_handler, LV_EVENT_VALUE_CHANGED, NULL);
-        lv_obj_add_style(recipe_dropdown, &style_no_border, 0);
+        lv_obj_add_style(recipe_dropdown, &wlanSettings.style_no_border, 0);
         dropdown_exists = true;
     }
 }
@@ -162,11 +147,6 @@ void updateRecipeDropdownState() {
 }
 
 void recipe_dropdown_event_handler(lv_event_t * e) {
-    if (coolingProcessRunning) {
-        // Der Button ist deaktiviert; führe keine Aktion aus
-        return;
-    }
-
     recipe_dropdown = lv_event_get_target(e);
     if (!recipe_dropdown || !lv_obj_is_valid(recipe_dropdown)) return;
 
@@ -187,7 +167,6 @@ void recipe_dropdown_event_handler(lv_event_t * e) {
             float endTemp = (day < selectedRecipe.temperatures.size() - 1) ? selectedRecipe.temperatures[day + 1] : startTemp;
 
             for (int step = 0; step < stepsperday; step++) {
-                // Am letzten Tag nur einen Sollwert setzen (den Endwert des Rezepts)
                 if (day == selectedRecipe.temperatures.size() - 1 && step > 0) break;
 
                 float tempValue = (day < selectedRecipe.temperatures.size() - 1) ? 

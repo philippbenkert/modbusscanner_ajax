@@ -1,23 +1,26 @@
-#include "lvgl.h"
 #include <WiFi.h>
 #include "webserver.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include "lvgl.h"
 #include "ModbusScanner.h"
+#include "WLANSettings.h"
 #include "WebSocketHandler.h"
 #include "TouchPanel.h"
 #include "SDCardHandler.h"
 #include <LovyanGFX.hpp>
 #include <DNSServer.h>
 #include "Process.h"
-#include "WLANSettings.h"
 #include <Wire.h>
 #include "RTCControl.h"
 #include "DateTimeHandler.h"
 #include "OTAUpdates.h"
 #include "ModbusSettings.h"
 #include "CommonDefinitions.h"
+#include "UIHandler.h"
 
+UIHandler uiHandler;
+WLANSettings wlanSettings;
 #define BOARD_485_EN            2
 
 RTC_DS3231 rtc;
@@ -33,9 +36,6 @@ extern lv_obj_t* recipe_dropdown;
 std::vector<TimeTempPair> dbData;
 extern lv_color_t seriesColor;
 
-extern void connectToWifi(const char* ssid, const char* password, lv_obj_t* popup);
-extern bool loadSTACredentials(String &ssid, String &password);
-extern void updateShouldReconnect(bool connect);
 extern void updateProgress();
 bool shouldReconnect = true; // oder false, je nach gewünschter Standardfunktionalität
 String lastSSID;
@@ -78,7 +78,7 @@ void wifiTask(void *parameter) {
         dnsServer.processNextRequest();  // DNS-Server aktualisieren
         otaUpdates.handle();
         if (!WiFi.isConnected() && shouldReconnect) {
-            connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
+            wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
         }
         if (isConnectedModbus) {
         auto configs = readModbusConfigs("/config/device.json");
@@ -126,6 +126,7 @@ void wifiTask(void *parameter) {
     }
 }
 void setup() {
+    uiHandler.setWLANSettingsReference(&wlanSettings);
     isConnectedModbus = false;
     Serial.begin(115200);
     if (!LittleFS.begin(true)) {
@@ -158,6 +159,7 @@ void setup() {
     readRecipesFromFile();
     loadCoolingProcessStatus();
     
+    
     sdCard.init();
 
     // Öffnen der Datenbank
@@ -180,8 +182,8 @@ void setup() {
     }
 
     String ssid, password;
-    if (loadSTACredentials(lastSSID, lastPassword)) {
-        connectToWifi(lastSSID.c_str(), lastPassword.c_str(), popup);
+    if (wlanSettings.loadSTACredentials(lastSSID, lastPassword)) {
+        wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
     }
     xTaskCreatePinnedToCore(wifiTask, "WiFi Task", 10000, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(uiModbusTask, "UI Modbus Task", 10000, NULL, 1, NULL, 1);
