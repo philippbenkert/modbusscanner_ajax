@@ -1,6 +1,8 @@
 #include "UIHandler.h"
 extern WLANSettings wlanSettings;
 
+std::map<std::string, lv_obj_t*> UIHandler::buttonMap;
+
 void UIHandler::initialize_style_bg_rounded() {
     if (!is_style_bg_rounded_initialized) {
         lv_style_init(&style_bg_rounded);
@@ -78,40 +80,88 @@ void UIHandler::setWLANSettingsReference(WLANSettings* wlanSettings) {
 }
 
 void UIHandler::connect_btn_event_cb(lv_event_t * e) {
-        UIHandler* handler = static_cast<UIHandler*>(lv_event_get_user_data(e));
-        Serial.println("Connect-Button wurde geklickt.");
+    UIHandler* handler = static_cast<UIHandler*>(lv_event_get_user_data(e));
+    if (!handler || !handler->wlanSettingsRef) {
+        Serial.println("Handler or WLANSettings reference is null.");
+        return;
+    }
 
-    auto * user_data = static_cast<std::pair<lv_obj_t*, lv_obj_t*>*>(lv_event_get_user_data(e));
-    lv_obj_t* ssid_input = user_data->first;
-    lv_obj_t* password_input = user_data->second;
+    Serial.println("Connect-Button wurde geklickt.");
 
-    const char* ssid = lv_textarea_get_text(ssid_input);
-    const char* password = lv_textarea_get_text(password_input);
+    // Nutze die im UIHandler gespeicherten Eingabefelder
+    const char* ssid = lv_textarea_get_text(handler->getSSIDInput());
+    const char* password = lv_textarea_get_text(handler->getPasswordInput());
+    Serial.print("SSID: "); Serial.println(ssid);
+    Serial.print("Password: "); Serial.println(password);
 
-    auto * btn = lv_event_get_target(e);
-    lv_obj_t* label = lv_obj_get_child(btn, 0);
-
+    // Verbindungslogik
     if (handler->wlanSettingsRef->isConnected()) {
+        Serial.println("Currently connected. Attempting to disconnect.");
         handler->wlanSettingsRef->disconnectWifi();
         handler->wlanSettingsRef->updateShouldReconnect(false);
-        lv_label_set_text(label, "Verbinden");
     } else {
-        lv_label_set_text(label, "Trennen");
-
+        Serial.println("Not connected. Attempting to connect.");
         if (strlen(ssid) > 0 && strlen(password) > 0) {
+            Serial.println("Using provided SSID and password.");
             handler->wlanSettingsRef->saveCredentials(ssid, password);
             handler->wlanSettingsRef->connectToWifi(ssid, password);
         } else {
+            Serial.println("No SSID or password provided. Loading saved credentials.");
             String savedSSID, savedPassword;
             if (handler->wlanSettingsRef->loadSTACredentials(savedSSID, savedPassword)) {
+                Serial.println("Saved credentials found. Attempting to connect.");
                 handler->wlanSettingsRef->connectToWifi(savedSSID.c_str(), savedPassword.c_str());
             } else {
-                lv_label_set_text(label, "Verbinden");
-                Serial.println("Keine gespeicherten WLAN-Anmeldeinformationen gefunden.");
-                return;
+                Serial.println("No saved credentials found.");
             }
         }
         handler->wlanSettingsRef->updateShouldReconnect(true);
-        lv_label_set_text(label, handler->wlanSettingsRef->isConnected() ? "Trennen" : "Verbinden");
+    }
+
+    // Aktualisieren des Button-Labels
+    handler->updateConnectButtonLabel("connectButton");
+}
+
+
+void UIHandler::registerButtonName(lv_obj_t* button, const std::string& name) {
+    buttonMap[name] = button;
+}
+
+std::string UIHandler::findButtonNameByObject(lv_obj_t* btnObject) {
+    for (auto &pair : buttonMap) {
+        if (pair.second == btnObject) {
+            return pair.first;
+        }
+    }
+    return ""; // Oder eine Fehlerbehandlung, falls kein passender Button gefunden wurde
+}
+
+// Die Methode zum Aktualisieren des Button-Labels verwenden
+void UIHandler::updateConnectButtonLabel(const std::string& buttonName) {
+    Serial.print("Updating label for button: ");
+    Serial.println(buttonName.c_str());
+    auto it = buttonMap.find(buttonName);
+    if (it != buttonMap.end()) {
+        lv_obj_t* btn = it->second;
+        lv_obj_t* label = lv_obj_get_child(btn, 0);
+        if (label) {
+            const char* newLabel = wlanSettingsRef && wlanSettingsRef->isConnected() ? "Trennen" : "Verbinden";
+            Serial.print("New label: ");
+            Serial.println(newLabel);
+            lv_label_set_text(label, newLabel);
+        } else {
+            Serial.println("Label object is null.");
+        }
+    } else {
+        Serial.println("Button not found in buttonMap.");
+    }
+}
+
+void UIHandler::printButtonNames() {
+    Serial.print("ButtonMap Size: ");
+    Serial.println(buttonMap.size());
+    for (const auto& pair : buttonMap) {
+        Serial.print("Button Name: ");
+        Serial.println(pair.first.c_str());
     }
 }

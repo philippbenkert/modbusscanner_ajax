@@ -30,9 +30,9 @@ void WLANSettings::setConnected(bool connected) {
 }
 
 bool WLANSettings::isConnected() const {
-    return m_isConnected;
+    return WiFi.status() == WL_CONNECTED;
 }
-// In WLANSettings.cpp
+
 void WLANSettings::wlanSettingsFunction(lv_event_t * e) {
     if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
         clearContentArea();
@@ -96,36 +96,39 @@ void WLANSettings::setupWifiUI(lv_obj_t * parent, const String &wifiSSID, const 
     lv_label_set_text(ssid_label, "SSID:");
     lv_obj_align(ssid_label, LV_ALIGN_TOP_LEFT, 5, 180);
     uiHandler.initialize_style_no_border();
+
     lv_obj_t * ssid_input = lv_textarea_create(parent);
     lv_obj_set_size(ssid_input, 160, 30);
     lv_obj_align(ssid_input, LV_ALIGN_TOP_LEFT, 106, 170);
     lv_textarea_set_text(ssid_input, wifiSSID.c_str());
-    lv_textarea_set_one_line(ssid_input, true); // Setzt das Textfeld auf eine Zeile
+    lv_textarea_set_one_line(ssid_input, true);
     lv_obj_add_style(ssid_input, &style_no_border, 0);
+    uiHandler.setSSIDInput(ssid_input);  // Speichern des SSID-Eingabefeldes
+
     lv_obj_t * password_label = lv_label_create(parent);
     lv_label_set_text(password_label, "Passwort:");
     lv_obj_align(password_label, LV_ALIGN_TOP_LEFT, 5, 215);
+
     lv_obj_t * password_input = lv_textarea_create(parent);
     lv_obj_set_size(password_input, 160, 30);
     lv_obj_align(password_input, LV_ALIGN_TOP_LEFT, 106, 205);
     lv_textarea_set_password_mode(password_input, true);
-    lv_textarea_set_one_line(password_input, true); // Setzt das Textfeld auf eine Zeile
+    lv_textarea_set_one_line(password_input, true);
     lv_obj_add_style(password_input, &style_no_border, 0);
-    actualPassword = wifiPassword;
     String passwordStars(wifiPassword.length(), '*');
     lv_textarea_set_text(password_input, passwordStars.c_str());
-    lv_obj_add_event_cb(ssid_input, UIHandler::textarea_event_cb, LV_EVENT_CLICKED, &uiHandler);
-    lv_obj_add_event_cb(password_input, UIHandler::textarea_event_cb, LV_EVENT_CLICKED, &uiHandler);
-    uiHandler.initialize_btn_style();
+    uiHandler.setPasswordInput(password_input);  // Speichern des Passwort-Eingabefeldes
+
     lv_obj_t * connect_btn = lv_btn_create(parent);
     lv_obj_set_size(connect_btn, 100, 28);
-    lv_obj_align(connect_btn, LV_ALIGN_BOTTOM_MID, 80, 5); // Position links vom Speichern-Button
-    lv_obj_add_style(connect_btn, &btn_style, 0); // Stil auf den Button anwenden
+    lv_obj_align(connect_btn, LV_ALIGN_BOTTOM_MID, 80, 5);
+    lv_obj_add_style(connect_btn, &btn_style, 0);
     lv_obj_t * connect_label = lv_label_create(connect_btn);
     lv_label_set_text(connect_label, isConnected() ? "Trennen" : "Verbinden");
-    lv_obj_add_event_cb(connect_btn, UIHandler::connect_btn_event_cb, LV_EVENT_CLICKED, new std::pair<lv_obj_t*, lv_obj_t*>(ssid_input, password_input));
-
+    uiHandler.registerButtonName(connect_btn, "connectButton");
+    lv_obj_add_event_cb(connect_btn, UIHandler::connect_btn_event_cb, LV_EVENT_CLICKED, &uiHandler);
 }
+
 
 void WLANSettings::connectToWifi(const char* ssid, const char* password){
     WiFi.begin(ssid, password);

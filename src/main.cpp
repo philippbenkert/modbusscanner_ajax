@@ -77,6 +77,9 @@ void wifiTask(void *parameter) {
 
         dnsServer.processNextRequest();  // DNS-Server aktualisieren
         otaUpdates.handle();
+        if (wlanSettings.isConnected()) {
+        shouldReconnect = false; // Wenn bereits verbunden, nicht erneut verbinden
+        }
         if (!WiFi.isConnected() && shouldReconnect) {
             wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
         }
@@ -100,9 +103,17 @@ void wifiTask(void *parameter) {
         lv_task_handler();
         display.checkStandby();
         if (millis() - lastTime > 1000) {
-        lastTime = millis();
-        now = rtc.now(); // Aktualisiere die globale Variable `now`
-    }
+            lastTime = millis();
+            now = rtc.now(); // Aktualisiere die globale Variable `now`
+
+            std::string buttonName = "connectButton";
+            lv_obj_t* button = UIHandler::getButtonByName(buttonName);
+            if (uiHandler.isObjectValid(button)) {
+                wlanSettings.updateConnectionButton(button);
+            } else {
+                Serial.println("Button is invalid or not found.");
+            }
+        }
 
         if (chart && lv_obj_is_valid(chart)) {
             static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
@@ -126,7 +137,7 @@ void wifiTask(void *parameter) {
     }
 }
 void setup() {
-    uiHandler.setWLANSettingsReference(&wlanSettings);
+    
     isConnectedModbus = false;
     Serial.begin(115200);
     if (!LittleFS.begin(true)) {
@@ -159,7 +170,10 @@ void setup() {
     readRecipesFromFile();
     loadCoolingProcessStatus();
     
+    uiHandler.setWLANSettingsReference(&wlanSettings);
+
     
+
     sdCard.init();
 
     // Öffnen der Datenbank
