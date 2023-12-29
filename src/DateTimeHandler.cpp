@@ -4,6 +4,7 @@
 
 extern RTC_DS3231 rtc;
 extern DateTime now;
+lv_timer_t* dateTimeUpdateTimer = NULL;
 
 Preferences preferences;
 
@@ -83,8 +84,15 @@ void setDateTimeRollersToCurrent() {
 }
 
 void setup_datetime_update(lv_obj_t* dateTimeLabel) {
+    // Deaktivieren und löschen des vorherigen Timers, falls vorhanden
+    if (dateTimeUpdateTimer != NULL) {
+        lv_timer_del(dateTimeUpdateTimer);
+        dateTimeUpdateTimer = NULL;
+    }
+
+    // Erstellen eines neuen Timers
     if (dateTimeLabel) {
-        lv_timer_t* timer = lv_timer_create(update_datetime_label, 1000, dateTimeLabel);
-        lv_timer_ready(timer);
+        dateTimeUpdateTimer = lv_timer_create(update_datetime_label, 1000, dateTimeLabel);
+        lv_timer_ready(dateTimeUpdateTimer);
     }
 }

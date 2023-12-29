@@ -44,9 +44,18 @@ lv_obj_t* iconCache[numItems] = { NULL };
 
 void setScreenBackgroundColor(lv_color_t color) {
     static lv_style_t style_bg; // Stellen Sie sicher, dass der Stil statisch oder global ist
-    lv_style_init(&style_bg);
-    lv_style_set_bg_color(&style_bg, color); 
+    static bool is_style_bg_initialized = false; // Hinzugefügter Boolescher Wert
 
+    // Initialisieren Sie den Stil nur, wenn er noch nicht initialisiert wurde
+    if (!is_style_bg_initialized) {
+        lv_style_init(&style_bg);
+        is_style_bg_initialized = true; // Setzen Sie den Booleschen Wert auf true, nachdem der Stil initialisiert wurde
+    }
+
+    // Stilfarbe setzen, unabhängig davon, ob er gerade initialisiert wurde oder bereits vorhanden ist
+    lv_style_set_bg_color(&style_bg, color);
+
+    // Fügen Sie den Stil dem aktiven Bildschirm hinzu
     lv_obj_add_style(lv_scr_act(), &style_bg, 0);
 }
 

@@ -18,11 +18,15 @@
 #include "ModbusSettings.h"
 #include "CommonDefinitions.h"
 #include "UIHandler.h"
+#include "IoTGuruHandler.h"
 
 UIHandler uiHandler;
 WLANSettings wlanSettings;
+IoTHandler* iotHandler;  // Deklariere als Zeiger
+String macAddress;  
 #define BOARD_485_EN            2
 
+extern int selectedRecipeIndex;
 RTC_DS3231 rtc;
 DateTime now;
 unsigned long lastTime = 0;
@@ -35,6 +39,8 @@ extern DNSServer dnsServer;
 extern lv_obj_t* recipe_dropdown;
 std::vector<TimeTempPair> dbData;
 extern lv_color_t seriesColor;
+extern int modbusLogTemp;
+unsigned long nextSend = 0;
 
 extern void updateProgress();
 bool shouldReconnect = true; // oder false, je nach gewünschter Standardfunktionalität
@@ -44,6 +50,8 @@ DateTime getRTCDateTime() {
     return rtc.now();
 }
 
+void wifiTask(void *parameter);
+void uiModbusTask(void *parameter);
 bool loadCredentials(String& savedSSID, String& savedPassword) {
     if (LittleFS.exists("/config/wlan-credentials.json")) {
         File file = LittleFS.open("/config/wlan-credentials.json", "r");
@@ -72,72 +80,21 @@ String getWlanSettingsAsJson() {
     return "{}"; // Return empty JSON if no settings were found
 }
 
-void wifiTask(void *parameter) {
-    for (;;) {
-
-        dnsServer.processNextRequest();  // DNS-Server aktualisieren
-        otaUpdates.handle();
-        if (wlanSettings.isConnected()) {
-        shouldReconnect = false; // Wenn bereits verbunden, nicht erneut verbinden
-        }
-        if (!WiFi.isConnected() && shouldReconnect) {
-            wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
-        }
-        if (isConnectedModbus) {
-        auto configs = readModbusConfigs("/config/device.json");
-        if (modbusScanner.tryConnectAndIdentify(configs)) {
-            Serial.println("Gerät identifiziert: " + device);
-        } else {
-            Serial.println("Keine Geräte identifiziert.");
-            isConnectedModbus = false;
-            //updateToggleButtonLabel(btn);
-        }
-        }
-        delay(1000); // Verzögerung zur CPU-Entlastung
-    }
-    }
-
-    void uiModbusTask(void *parameter) {
-    for (;;) {
-
-        lv_task_handler();
-        display.checkStandby();
-        if (millis() - lastTime > 1000) {
-            lastTime = millis();
-            now = rtc.now(); // Aktualisiere die globale Variable `now`
-
-            std::string buttonName = "connectButton";
-            lv_obj_t* button = UIHandler::getButtonByName(buttonName);
-            if (uiHandler.isObjectValid(button)) {
-                wlanSettings.updateConnectionButton(button);
-            } else {
-                Serial.println("Button is invalid or not found.");
-            }
-        }
-
-        if (chart && lv_obj_is_valid(chart)) {
-            static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
-            const unsigned long updateInterval = 300000; // 5 Minuten in Millisekunden
-            unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
-            updateCursorVisibility(chart, !coolingProcessRunning);
-        if (currentTime1 - lastUpdateTime >= updateInterval) {
-        lastUpdateTime = currentTime1; // Aktualisieren des Zeitpunkts der letzten Aktualisierung
-        void updateRecipeDropdownState();
-            if (coolingProcessRunning) {
-            updateProgress();
-            isMenuLocked = true;
-            } 
-        }
-        if (coolingProcessRunning) {
-            isMenuLocked = true;
-        } else {
-            isMenuLocked = false;
-        }       
+String removeColons(String str) {
+    String result;
+    for (char c : str) {
+        if (c != ':') {
+            result += c;
         }
     }
+    return result;
 }
 void setup() {
-    
+    String macAddress = WiFi.macAddress();
+    macAddress = removeColons(macAddress);
+
+    iotHandler = new IoTHandler(wlanSettings, macAddress, "01bd26576e1adbc3cd343582784d01e2");
+
     isConnectedModbus = false;
     Serial.begin(115200);
     if (!LittleFS.begin(true)) {
@@ -170,10 +127,6 @@ void setup() {
     readRecipesFromFile();
     loadCoolingProcessStatus();
     
-    uiHandler.setWLANSettingsReference(&wlanSettings);
-
-    
-
     sdCard.init();
 
     // Öffnen der Datenbank
@@ -199,6 +152,8 @@ void setup() {
     if (wlanSettings.loadSTACredentials(lastSSID, lastPassword)) {
         wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
     }
+    WiFi.setAutoReconnect(true);
+
     xTaskCreatePinnedToCore(wifiTask, "WiFi Task", 10000, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(uiModbusTask, "UI Modbus Task", 10000, NULL, 1, NULL, 1);
     
@@ -207,6 +162,102 @@ void setup() {
     updateSeriesColor(chart, seriesColor);
     
 }
+
+void wifiTask(void *parameter) {
+    for (;;) {
+
+        dnsServer.processNextRequest();  // DNS-Server aktualisieren
+        otaUpdates.handle();
+        if (WiFi.status() != WL_CONNECTED && shouldReconnect) {
+            Serial.println("Versuche, die WLAN-Verbindung wiederherzustellen...");
+            wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
+        }
+        if (isConnectedModbus) {
+        auto configs = readModbusConfigs("/config/device.json");
+        if (modbusScanner.tryConnectAndIdentify(configs)) {
+            Serial.println("Gerät identifiziert: " + device);
+        } else {
+            Serial.println("Keine Geräte identifiziert.");
+            isConnectedModbus = false;
+            //updateToggleButtonLabel(btn);
+        }
+        }
+        delay(1000); // Verzögerung zur CPU-Entlastung
+    }
+    }
+
+    void uiModbusTask(void *parameter) {
+    for (;;) {
+
+        lv_task_handler();
+        display.checkStandby();
+        if (millis() - lastTime > 1000) {
+            lastTime = millis();
+            now = rtc.now(); // Aktualisiere die globale Variable `now`
+            if (nextSend < millis()) {
+                nextSend += 300000; // Nächster Sendezeitpunkt in 300 Sekunden
+
+                float measuredValue; // Verwende den Messwert von modbusLogTemp
+
+// Debug-Ausgabe des ursprünglichen Wertes
+Serial.print("modbusLogTemp Wert: ");
+Serial.println(modbusLogTemp);
+
+if (modbusLogTemp == 0.00) {  // Ersetzen Sie 0.0 durch den Wert, der "leer" repräsentiert
+    measuredValue = 99.99;
+    Serial.println("modbusLogTemp ist 0.00, setze measuredValue auf 999.99");
+} else {
+    measuredValue = modbusLogTemp;
+    Serial.print("Setze measuredValue auf: ");
+    Serial.println(measuredValue);
+}
+
+// Überprüfen, ob iotHandler initialisiert wurde, bevor du es verwendest
+if (iotHandler) {
+    Serial.print("Sende Temperaturwert: ");
+    Serial.println(measuredValue);
+    String startTimeStr = String(startTime);
+    String selectedRecipeIndexStr = String (selectedRecipeIndex);
+    String savedEndTimeStr = String(savedEndTime);
+
+
+    iotHandler->sendValue("temperatur",measuredValue ,coolingProcessRunning, startTimeStr, savedEndTimeStr, selectedRecipeIndexStr);
+} else {
+    Serial.println("iotHandler ist nicht initialisiert!");
+}
+            }
+
+            std::string buttonName = "connectButton";
+            lv_obj_t* button = UIHandler::getButtonByName(buttonName);
+            //if (uiHandler.isObjectValid(button)) {
+            //    wlanSettings.updateConnectionButton(button);
+            //} else {
+            //    Serial.println("Button is invalid or not found.");
+            //}
+        }
+
+        if (chart && lv_obj_is_valid(chart)) {
+            static unsigned long lastUpdateTime = 0; // Speichert den Zeitpunkt der letzten Aktualisierung
+            const unsigned long updateInterval = 300000; // 5 Minuten in Millisekunden
+            unsigned long currentTime1 = millis(); // Aktuelle Zeit in Millisekunden seit dem Start des Programms
+            updateCursorVisibility(chart, !coolingProcessRunning);
+        if (currentTime1 - lastUpdateTime >= updateInterval) {
+        lastUpdateTime = currentTime1; // Aktualisieren des Zeitpunkts der letzten Aktualisierung
+        void updateRecipeDropdownState();
+            if (coolingProcessRunning) {
+            updateProgress();
+            isMenuLocked = true;
+            } 
+        }
+        if (coolingProcessRunning) {
+            isMenuLocked = true;
+        } else {
+            isMenuLocked = false;
+        }       
+        }
+    }
+}
+
     
 void loop() {
 }

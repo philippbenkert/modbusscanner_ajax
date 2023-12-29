@@ -161,9 +161,13 @@ void dst_switch_event_cb(lv_event_t * e) {
 
     // Roller-Designanpassungen
     static lv_style_t roller_selected_style;
-    lv_style_init(&roller_selected_style);
-    lv_style_set_bg_color(&roller_selected_style, lv_color_hex(0x00AEEF)); // Blauer Hintergrund für ausgewählte Zahlen
-    lv_style_set_text_color(&roller_selected_style, lv_color_hex(0xFFFFFF)); // Weißer Text
+    static bool roller_selected_style_initialized = false;
+    if (!roller_selected_style_initialized) {
+        lv_style_init(&roller_selected_style);
+        lv_style_set_bg_color(&roller_selected_style, lv_color_hex(0x00AEEF)); // Blauer Hintergrund für ausgewählte Zahlen
+        lv_style_set_text_color(&roller_selected_style, lv_color_hex(0xFFFFFF)); // Weißer Text
+        roller_selected_style_initialized = true;
+    }
 
     // Erstellen Sie Roller für Tag, Monat, Jahr, Stunde und Minute
     dayRoller = lv_roller_create(datetimeContainer);
@@ -211,8 +215,12 @@ void dst_switch_event_cb(lv_event_t * e) {
 
     // DST-Switch-Designanpassungen
     static lv_style_t dst_switch_style;
-    lv_style_init(&dst_switch_style);
-    lv_style_set_bg_color(&dst_switch_style, lv_color_hex(0xFF8C00)); // Hintergrundfarbe des Switch-Indikators
+    static bool dst_switch_style_initialized = false;
+    if (!dst_switch_style_initialized) {
+        lv_style_init(&dst_switch_style);
+        lv_style_set_bg_color(&dst_switch_style, lv_color_hex(0xFF8C00)); // Hintergrundfarbe des Switch-Indikators
+        dst_switch_style_initialized = true;
+    }
 
     lv_obj_t *dstSwitch = lv_switch_create(datetimeContainer);
     lv_obj_align(dstSwitch, LV_ALIGN_CENTER, 0, 90);
@@ -240,9 +248,13 @@ void dst_switch_event_cb(lv_event_t * e) {
 
     // Anpassen des Hintergrunds der Buttons in der Buttonmatrix
     static lv_style_t btnm_style;
-    lv_style_init(&btnm_style);
-    lv_style_set_bg_color(&btnm_style, lv_color_hex(0x00AEEF)); // Blauer Hintergrund
-    lv_style_set_text_color(&btnm_style, lv_color_hex(0xFFFFFF)); // Weißer Text
+    static bool btnm_style_initialized = false;
+    if (!btnm_style_initialized) {
+        lv_style_init(&btnm_style);
+        lv_style_set_bg_color(&btnm_style, lv_color_hex(0x00AEEF)); // Blauer Hintergrund
+        lv_style_set_text_color(&btnm_style, lv_color_hex(0xFFFFFF)); // Weißer Text
+        btnm_style_initialized = true;
+    }
     lv_obj_add_style(btnm, &btnm_style, LV_PART_MAIN);
 
     static const char * btnm_map[] = {"OK", "Abbrechen", ""};
