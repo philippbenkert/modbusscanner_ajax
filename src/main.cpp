@@ -30,6 +30,7 @@ extern int selectedRecipeIndex;
 RTC_DS3231 rtc;
 DateTime now;
 unsigned long lastTime = 0;
+unsigned long lastTime1 = 0;
 SDCardHandler sdCard;
 WebServer webServer;
 OTAUpdates otaUpdates;
@@ -41,6 +42,10 @@ std::vector<TimeTempPair> dbData;
 extern lv_color_t seriesColor;
 extern int modbusLogTemp;
 unsigned long nextSend = 0;
+unsigned long lastCheck = 0;
+unsigned long nextSend1 = 0;
+unsigned long lastCheck1 = 0;
+unsigned long checkInterval = 60000;  // Überprüfen Sie alle 60 Sekunden
 
 extern void updateProgress();
 bool shouldReconnect = true; // oder false, je nach gewünschter Standardfunktionalität
@@ -163,15 +168,54 @@ void setup() {
     
 }
 
+const char* wl_status_to_string(wl_status_t status) {
+    switch (status) {
+        case WL_NO_SHIELD: return "WL_NO_SHIELD";
+        case WL_IDLE_STATUS: return "WL_IDLE_STATUS";
+        case WL_NO_SSID_AVAIL: return "WL_NO_SSID_AVAIL";
+        case WL_SCAN_COMPLETED: return "WL_SCAN_COMPLETED";
+        case WL_CONNECTED: return "WL_CONNECTED";
+        case WL_CONNECT_FAILED: return "WL_CONNECT_FAILED";
+        case WL_CONNECTION_LOST: return "WL_CONNECTION_LOST";
+        case WL_DISCONNECTED: return "WL_DISCONNECTED";
+        default: return "UNKNOWN";
+    }
+}
+
 void wifiTask(void *parameter) {
     for (;;) {
 
+        if (millis() - lastTime1 > 1000) {
+            lastTime1 = millis();
+            now = rtc.now(); // Aktualisiere die globale Variable `now`
+            if (nextSend1 < millis()) {
+                nextSend1 += 300000; // Nächster Sendezeitpunkt in 300 Sekunden
         dnsServer.processNextRequest();  // DNS-Server aktualisieren
         otaUpdates.handle();
-        if (WiFi.status() != WL_CONNECTED && shouldReconnect) {
-            Serial.println("Versuche, die WLAN-Verbindung wiederherzustellen...");
-            wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
+        unsigned long now = millis();
+        // Überprüfen Sie den WLAN-Status in regelmäßigen Abständen
+        if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WLAN-Verbindung verloren.");
+        // Versuchen Sie, die Verbindung wiederherzustellen
+        wlanSettings.connectToWifi(lastSSID.c_str(), lastPassword.c_str());
+    } else {
+        // Führen Sie eine HTTP-Anfrage an eine zuverlässige Website durch, um die Internetverbindung zu überprüfen
+        HTTPClient http;
+        http.begin("http://www.google.com"); // oder eine andere zuverlässige URL
+        int httpCode = http.GET();
+        
+        if (httpCode > 0) {
+            // Erfolgreiche Verbindung zum Internet
+            Serial.println("Verbunden mit dem Internet.");
+        } else {
+            // Verbindung zum Internet fehlgeschlagen
+            Serial.println("Keine Verbindung zum Internet.");
+            // Sie können hier Maßnahmen ergreifen, um die Verbindung wiederherzustellen
         }
+
+        http.end(); //Schließen Sie die Verbindung
+    }
+
         if (isConnectedModbus) {
         auto configs = readModbusConfigs("/config/device.json");
         if (modbusScanner.tryConnectAndIdentify(configs)) {
@@ -182,9 +226,11 @@ void wifiTask(void *parameter) {
             //updateToggleButtonLabel(btn);
         }
         }
-        delay(1000); // Verzögerung zur CPU-Entlastung
-    }
-    }
+        delay(5000); // Verzögerung zur CPU-Entlastung
+        Serial.print("WLAN-Status: ");
+        Serial.println(wl_status_to_string(WiFi.status()));
+    }}
+    }}
 
     void uiModbusTask(void *parameter) {
     for (;;) {
